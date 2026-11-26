@@ -83,8 +83,8 @@ svg .tk{fill:var(--mute);font-size:11px;font-variant-numeric:tabular-nums}
 .gres div{background:var(--soft);border-radius:8px;padding:6px 8px;font-size:14px}
 .gres div span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .gres div b{font-size:15px}
-.seat{display:grid;grid-template-columns:2em minmax(0,1fr) 7.5em 4.6em;gap:8px;align-items:center;margin-bottom:8px}
-.seat .w{font-weight:700;color:var(--accent);text-align:center}
+.seat{display:grid;grid-template-columns:minmax(0,1fr) 8em 4.6em;gap:8px;align-items:center;margin-bottom:8px}
+.seat .w{font-weight:700;font-size:17px;padding-left:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .seat .pv{text-align:right;font-weight:700}
 .msg{min-height:1.5em;font-size:14px;margin:6px 0}
 .formbtns{display:flex;gap:10px}.formbtns .pri{flex:1}
@@ -112,7 +112,7 @@ tr.click{cursor:pointer}tr.cur td{background:var(--soft)}
  .gres{grid-template-columns:repeat(2,minmax(0,1fr))}
  .rank{grid-template-columns:1.6em minmax(0,1fr) 4.8em 3em;}
  .rank .s.ar{display:none}
- .seat{grid-template-columns:1.6em minmax(0,1fr) 6.2em 4.2em;gap:6px}
+ .seat{grid-template-columns:minmax(0,1fr) 7em 4.4em;gap:6px}
 }
 @media (prefers-reduced-motion:no-preference){.card{animation:in .25s ease-out}@keyframes in{from{opacity:0;transform:translateY(4px)}}}
 </style>
@@ -228,7 +228,7 @@ function setSummary(st){
     c.res.forEach(r=>{if(!tot[r.pid]){tot[r.pid]={pid:r.pid,pt:0,n:0,rs:0};cum[r.pid]=cum[r.pid]||[0]}const t=tot[r.pid];t.pt=Math.round((t.pt+r.pt)*10)/10;t.n++;t.rs+=r.rank});
     Object.keys(cum).forEach(p=>cum[p].push(tot[p]?tot[p].pt:0));
   });
-  const list=Object.values(tot).sort((a,b)=>b.pt-a.pt);
+  const list=Object.values(tot).filter(x=>x.n>0).sort((a,b)=>b.pt-a.pt);
   return {list,cum,kyo:kyo/1000,n:(st.games||[]).length};
 }
 function erf(x){const t=1/(1+.3275911*Math.abs(x));const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-.284496736)*t+.254829592)*t*Math.exp(-x*x);return x>=0?y:-y}
@@ -348,7 +348,7 @@ function vSetBottom(){
   S.shareText=text;
   const games=(st.games||[]).map((g,i)=>{const c=calc(g,rule,st.kyoTop);if(!c)return '';
     return `<div class="game"><div class="ghead"><b>第${i+1}半荘</b><span><button class="ghost" data-edit="${i}">修正</button><button class="ghost warn" data-delg="${i}">${S.armed==='g'+i?'もう一度で削除':'削除'}</button></span></div>
-    <div class="gres">${c.res.map((r,k)=>`<div><span>${SEATS[k]} ${esc(nm(r.pid))}</span><b class="num ${cls(r.pt)}">${f1(r.pt)}</b> <span class="note num" style="display:inline">${r.rank}着 ${r.score.toLocaleString()}</span></div>`).join('')}</div></div>`}).join('');
+    <div class="gres">${c.res.slice().sort((a,b)=>a.rank-b.rank).map(r=>`<div><span>${esc(nm(r.pid))}</span><b class="num ${cls(r.pt)}">${f1(r.pt)}</b> <span class="note num" style="display:inline">${r.rank}着 ${r.score.toLocaleString()}</span></div>`).join('')}</div></div>`}).join('');
   return `<div class="card"><h2>トータル成績</h2>
    <div class="legend">${sm.list.map(x=>`<span><i style="background:${color(x.pid)}"></i>${esc(nm(x.pid))}</span>`).join('')}</div>
    <div class="fig" data-c="set"><svg role="img" aria-label="累計ポイントの推移"></svg></div>
@@ -372,11 +372,13 @@ function renderForm(force){
     const last=(st.games||[])[(st.games||[]).length-1];
     S.form={seats:last?last.seats.slice():pl.slice(0,4),scores:['','','','']};
   }
+  if(pl.length===4&&S.edit==null)S.form.seats=pl.slice();
+  const fixed=pl.length===4&&S.form.seats.every(p=>pl.includes(p))&&new Set(S.form.seats).size===4;
   const n=S.edit!=null?S.edit+1:(st.games||[]).length+1;
   const opts=sel=>pl.map(p=>`<option value="${esc(p)}"${p===sel?' selected':''}>${esc(nm(p))}</option>`).join('');
   F.innerHTML=`<div class="card" id="formCard"><h2>第${n}半荘を${S.edit!=null?'修正':'記録'}</h2>
-   <p class="note" style="margin:-6px 0 10px">起家から順に入力。点数は 32500 でも 325（百点単位）でもOK。3人入れると残り1人は自動で入ります。</p>
-   ${[0,1,2,3].map(i=>`<div class="seat"><span class="w">${SEATS[i]}</span><select data-seat="${i}" aria-label="${SEATS[i]}家">${opts(S.form.seats[i])}</select><input data-score="${i}" inputmode="numeric" placeholder="点数" value="${esc(S.form.scores[i])}" aria-label="${SEATS[i]}家の点数"><span class="pv num" id="pv${i}"></span></div>`).join('')}
+   <p class="note" style="margin:-6px 0 10px">点数は 32500 でも 325（百点単位）でもOK。3人入れると残り1人は自動で入ります。<span id="tieNote"></span></p>
+   ${[0,1,2,3].map(i=>`<div class="seat">${fixed?`<span class="w">${esc(nm(S.form.seats[i]))}</span>`:`<select data-seat="${i}" aria-label="${i+1}人目">${opts(S.form.seats[i])}</select>`}<input data-score="${i}" inputmode="numeric" placeholder="点数" value="${esc(S.form.scores[i])}" aria-label="${esc(nm(S.form.seats[i]))}の点数"><span class="pv num" id="pv${i}"></span></div>`).join('')}
    <div class="msg" id="fmsg"></div>
    <div class="formbtns"><button class="pri" id="saveG">${S.edit!=null?'修正を保存':'記録する'}</button>${S.edit!=null?'<button id="cancelEdit">やめる</button>':''}</div></div>`;
   updatePreview();
@@ -401,6 +403,7 @@ function updatePreview(){
   const sum=sc.reduce((a,b)=>a+b,0),diff=exp-sum;
   if(diff<0||diff%1000){msg.innerHTML=`<span class="m">合計が${Math.abs(diff).toLocaleString()}点${diff<0?'多い':'合わない'}です（合計 ${sum.toLocaleString()}点）</span>`;[0,1,2,3].forEach(i=>document.getElementById('pv'+i).textContent='');return}
   const c=calc({seats:S.form.seats,scores:sc},rule,st.kyoTop);
+  const tn=document.getElementById('tieNote');if(tn)tn.textContent=new Set(sc).size<4?' 同点のときは上の行の人を上位にしています。':'';
   c.res.forEach((r,i)=>{const e=document.getElementById('pv'+i);e.textContent=f1(r.pt);e.className='pv num '+cls(r.pt)});
   msg.innerHTML=diff?`<span class="note">供託 ${diff/1000}本 ${st.kyoTop===false?'（場に残る）':'→ トップへ'}</span>`:'<span class="note">合計OK</span>';
 }
