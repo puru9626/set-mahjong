@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>セット麻雀 成績</title>
+<meta name="theme-color" content="#ffffff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="セット成績">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script src="config.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+/* VOICE: 明るく気軽。対局後にさっと入力し、成績をながめる道具
+   IDEA: 白い牌 — 白地にやわらかい影、青と朱の差し色
+   PICTURE: 累計ポイントの折れ線と順位表、実力推定の分布の山
+   COLOUR and TYPE: 白基調、差し色は青、プラスは緑・マイナスは朱 / M PLUS Rounded 1c、数字は等幅
+   LAYOUT: 1カラム、左端をそろえる。上にタブ、カードを縦に積む */
+:root{color-scheme:light;
+--bg:#f5f7fb;--card:#fff;--ink:#1d2533;--mute:#6b7585;--line:#e5e9f0;--accent:#2f6fec;--acsoft:#edf2fe;
+--plus:#11905c;--minus:#d93a4b;--soft:#f3f5f9;--plusbg:rgba(17,144,92,.11);--minusbg:rgba(217,58,75,.09)}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "M PLUS Rounded 1c","Hiragino Maru Gothic ProN",system-ui,sans-serif;overflow-x:clip}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+header{background:#fff;color:var(--ink);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.hin{max-width:760px;margin:0 auto;padding:18px 16px 0}
+h1{margin:0;font-size:21px;font-weight:800;display:flex;align-items:center;gap:10px}h1 img{width:30px;height:30px;border-radius:8px}
+nav{display:flex;gap:4px;margin-top:6px}
+nav a{color:var(--mute);text-decoration:none;padding:10px 14px 12px;border-bottom:3px solid transparent;font-weight:500;min-height:44px}
+nav a.on{color:var(--accent);border-color:var(--accent)}
+main{max-width:760px;margin:0 auto;padding:16px 16px 60px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 1px 2px rgba(29,37,51,.04);padding:18px;margin-bottom:14px}
+h2{font-size:17px;margin:0 0 12px}
+h3{font-size:15px;margin:0 0 8px;color:var(--mute);font-weight:500}
+.note{color:var(--mute);font-size:13px}
+.banner{background:var(--soft);border-radius:10px;padding:10px 14px;font-size:14px;margin-bottom:14px}
+button,select,input{font:inherit;font-size:16px;color:var(--ink)}
+button{min-height:44px;border-radius:10px;border:1px solid var(--line);background:var(--card);padding:0 14px;cursor:pointer}
+button.pri{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+button.ghost{border-color:transparent;background:transparent;color:var(--mute)}
+button.warn{color:var(--minus)}
+button:disabled{opacity:.4;cursor:default}
+select,input{min-height:44px;border:1px solid var(--line);border-radius:10px;background:var(--card);padding:0 10px;width:100%}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.p{color:var(--plus)}.m{color:var(--minus)}
+.setitem{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--card);margin-bottom:10px;text-decoration:none;color:inherit}
+.setitem b{font-size:18px}
+.setitem .r{text-align:right}
+.setitem .big{font-size:20px;font-weight:700}
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.toolbar>*{flex:1 1 160px}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.lab{display:block;font-size:13px;color:var(--mute);margin-bottom:4px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:0 6px 0 14px;min-height:40px;background:var(--card)}
+.chip button{min-height:32px;padding:0 8px;border:0;background:transparent;color:var(--mute)}
+.chip.sel{background:var(--acsoft);border-color:var(--accent);color:var(--accent)}
+button.chip{padding:0 14px}
+.addrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px;margin-bottom:6px}
+.legend i{display:inline-block;width:18px;height:3px;border-radius:2px;vertical-align:middle;margin-right:6px}
+.fig{position:relative;min-height:260px}.fig>svg{position:absolute;inset:0;width:100%;height:100%}
+.fig.sm{min-height:180px}
+svg .grid{stroke:var(--line)}svg .zero{stroke:var(--mute);stroke-opacity:.6}
+svg .tk{fill:var(--mute);font-size:11px;font-variant-numeric:tabular-nums}
+.rank{display:grid;grid-template-columns:2em minmax(0,1fr) 5.2em 3.4em 3.4em;gap:8px;align-items:center;padding:12px 14px;border:1px solid var(--line);border-radius:12px;margin-top:8px}
+.rank .n{font-weight:700;font-size:18px}.rank .nm{font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rank .t{font-weight:700;font-size:19px;text-align:right}.rank .s{text-align:right;color:var(--mute);font-size:14px}
+.foot{display:flex;justify-content:space-between;background:var(--soft);border-radius:10px;padding:10px 14px;margin-top:12px;font-size:14px;color:var(--mute)}
+.share{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-top:12px}
+.share a{display:flex;align-items:center;justify-content:center;min-height:44px;border-radius:10px;background:#06c755;color:#fff;text-decoration:none;font-weight:700}
+.game{border-top:1px solid var(--line);padding:12px 0}
+.game:first-of-type{border-top:0}
+.ghead{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.ghead button{min-height:36px;padding:0 10px;font-size:14px}
+.gres{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.gres div{background:var(--soft);border-radius:8px;padding:6px 8px;font-size:14px}
+.gres div span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gres div b{font-size:15px}
+.seat{display:grid;grid-template-columns:2em minmax(0,1fr) 7.5em 4.6em;gap:8px;align-items:center;margin-bottom:8px}
+.seat .w{font-weight:700;color:var(--accent);text-align:center}
+.seat .pv{text-align:right;font-weight:700}
+.msg{min-height:1.5em;font-size:14px;margin:6px 0}
+.formbtns{display:flex;gap:10px}.formbtns .pri{flex:1}
+.stat{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.stat div{background:var(--soft);border-radius:10px;padding:10px 12px}
+.stat span{display:block;font-size:12px;color:var(--mute)}.stat b{font-size:20px}
+.bars div{display:grid;grid-template-columns:3em minmax(0,1fr) 4em;gap:10px;align-items:center;font-size:14px;margin-bottom:6px}
+.bars i{display:block;height:10px;border-radius:5px;background:var(--accent)}
+.prob{display:grid;grid-template-columns:minmax(0,1fr) 5em;font-size:14px;padding:4px 0;border-bottom:1px dashed var(--line)}
+.prob b{text-align:right}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th{white-space:nowrap;font-size:12px;color:var(--mute);font-weight:500;text-align:right;padding:6px 6px;border-bottom:1px solid var(--line)}
+th:nth-child(2),td:nth-child(2){text-align:left}
+td{padding:10px 6px;border-bottom:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.click{cursor:pointer}tr.cur td{background:var(--soft)}
+.scroll{overflow-x:auto}
+.vs{border-top:2px solid var(--ink);padding-top:10px;margin-top:18px}
+.vsrow{display:grid;grid-template-columns:minmax(0,1fr) 5em 3.6em;gap:8px;font-size:15px;padding:3px 0}
+.vsrow .num{text-align:right}
+.vsrow.h{font-size:17px;font-weight:700}
+.mem{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.empty{text-align:center;color:var(--mute);padding:28px 10px}
+@media(max-width:600px){
+ .stat{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .gres{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .rank{grid-template-columns:1.6em minmax(0,1fr) 4.8em 3em;}
+ .rank .s.ar{display:none}
+ .seat{grid-template-columns:1.6em minmax(0,1fr) 6.2em 4.2em;gap:6px}
+}
+@media (prefers-reduced-motion:no-preference){.card{animation:in .25s ease-out}@keyframes in{from{opacity:0;transform:translateY(4px)}}}
+</style>
+</head>
+<body>
+<header><div class="hin"><h1><img src="icon-192.png" alt="">セット麻雀 成績</h1>
+<nav><a href="#sets" data-v="sets">対局</a><a href="#stats" data-v="stats">成績</a><a href="#members" data-v="members">メンバー</a></nav></div></header>
+<main>
+<div id="banner"></div>
+<div id="viewA"><div class="empty">読み込み中…</div></div>
+<div id="formWrap"></div>
+<div id="viewB"></div>
+</main>
+<script>
+{
+const RULES={
+  m:{name:'Mリーグルール',start:25000,back:30000,uma:[30,10,-10,-30]},
+  a12:{name:'赤有オカ有1-2',start:25000,back:30000,uma:[20,10,-10,-20]},
+  sai:{name:'最高位戦ルール',start:30000,back:30000,uma:[30,10,-10,-30]},
+  ren:{name:'連盟Aルール',start:30000,back:30000,uma:[15,5,-5,-15]}
+};
+const COLORS=['#2f6fec','#11905c','#d93a4b','#e09a12','#8a4fd8','#0aa3b5','#e0612b','#6b7585'];
+const SEATS=['東','南','西','北'];
+const S={members:{},sets:{},view:'sets',setId:null,statRule:'m',statPid:null,edit:null,form:null,formKey:'',ready:false,armed:null};
+let db=null;
+const LS='set-mj-data-v1',LSME='set-mj-me-v1';
+const lsGet=k=>{try{return localStorage.getItem(k)}catch(e){return null}};
+const lsSet=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+S.me=lsGet(LSME)||'';
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const f1=v=>(v>0?'+':'')+(Math.round(v*10)/10).toFixed(1);
+const f2=v=>v.toFixed(2);
+const cls=v=>v>0?'p':v<0?'m':'';
+const nm=id=>S.members[id]?S.members[id].name:'（削除済み）';
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const dlabel=d=>(d||'').replace(/-/g,'/');
+
+/* ---------- 保存 ---------- */
+const GAS=false;
+const API=((window.SET_MJ_CONFIG||{}).apiUrl||'').trim();
+let chain=Promise.resolve(),pending=0;
+function showErr(e){document.getElementById('banner').innerHTML='<div class="banner m">保存できませんでした（'+esc(e&&e.message||'通信エラー')+'）。電波を確認して、もう一度お試しください。</div>'}
+async function api(body){
+  const r=await fetch(API,{method:'POST',body:JSON.stringify(body)});
+  const j=await r.json();if(!j.ok)throw new Error(j.error||'error');return j;
+}
+function write(body){
+  if(!API){lsSet(LS,JSON.stringify({members:S.members,sets:S.sets}));return}
+  pending++;chain=chain.then(()=>api(body)).catch(showErr).finally(()=>pending--);
+}
+function put(col,obj){S[col][obj.id]=obj;render();write({op:'put',col,id:obj.id,data:JSON.parse(JSON.stringify(obj))})}
+function del(col,id){delete S[col][id];render();write({op:'del',col,id})}
+function useLocal(msg){
+  try{const d=JSON.parse(lsGet(LS)||'{}');S.members=d.members||{};S.sets=d.sets||{}}catch(e){}
+  S.ready=true;document.getElementById('banner').innerHTML='<div class="banner">'+esc(msg)+'</div>';render();
+}
+async function load(first){
+  if(!first&&pending)return;
+  try{
+    const r=await fetch(API+(API.includes('?')?'&':'?')+'op=load&t='+Date.now(),{cache:'no-store'});
+    const j=await r.json();if(!j.ok)throw new Error(j.error);
+    if(!first&&pending)return;
+    S.members=j.data.members||{};S.sets=j.data.sets||{};
+    if(!S.ready){S.ready=true;document.getElementById('banner').innerHTML=''}
+    const ae=document.activeElement;
+    if(first||!ae||!ae.matches('input,select,textarea'))render();
+  }catch(e){
+    if(first){S.ready=true;document.getElementById('banner').innerHTML='<div class="banner m">データを読み込めませんでした。電波を確認して、開き直してください。</div>';render()}
+  }
+}
+async function boot(){
+  if(!API){useLocal('保存先（config.js の apiUrl）が未設定のため、この端末だけに保存されます。');return}
+  load(true);
+  setInterval(()=>{if(document.visibilityState==='visible')load(false)},20000);
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')load(false)});
+}
+function copyText(text,done){
+  const fb=()=>{const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();let ok=false;try{ok=document.execCommand('copy')}catch(e){}ta.remove();done(ok)};
+  try{navigator.clipboard.writeText(text).then(()=>done(true),fb)}catch(e){fb()}
+}
+function importData(txt){
+  let d;try{d=JSON.parse(txt)}catch(e){return 'JSONとして読めませんでした'}
+  const ms=Object.values(d.members||{}).filter(m=>m&&m.id&&m.name).map(m=>({id:String(m.id),name:String(m.name).slice(0,30),created:m.created||Date.now()}));
+  const ss=Object.values(d.sets||{}).filter(st=>st&&st.id).map(st=>JSON.parse(JSON.stringify(st)));
+  if(!ms.length&&!ss.length)return '読み込むデータがありません';
+  ms.forEach(m=>S.members[m.id]=m);ss.forEach(st=>S.sets[st.id]=st);render();
+  write({op:'bulk',docs:ms.map(m=>({col:'members',id:m.id,data:m})).concat(ss.map(st=>({col:'sets',id:st.id,data:st})))});
+  return `メンバー${ms.length}人・対局${ss.length}件を読み込みました`;
+}
+
+/* ---------- 計算 ---------- */
+function calc(g,rule,kyoTop){
+  if(!g||!Array.isArray(g.seats)||g.seats.length!==4)return null;
+  const sc=g.scores.map(Number);
+  const kyo=Math.max(0,rule.start*4-sc.reduce((a,b)=>a+b,0));
+  const order=[0,1,2,3].sort((a,b)=>sc[b]-sc[a]||a-b);
+  const oka=(rule.back-rule.start)*4/1000;
+  const out=g.seats.map((pid,i)=>({pid,score:sc[i],rank:0,pt:0}));
+  order.forEach((si,r)=>{
+    const o=out[si];o.rank=r+1;
+    const s=o.score+(r===0&&kyoTop!==false?kyo:0);
+    o.pt=Math.round(((s-rule.back)/1000+rule.uma[r]+(r===0?oka:0))*10)/10;
+  });
+  return {res:out,kyo:kyoTop===false?kyo:0};
+}
+function setSummary(st){
+  const rule=RULES[st.rule]||RULES.m,tot={};let kyo=0;
+  (st.players||[]).forEach(p=>tot[p]={pid:p,pt:0,n:0,rs:0});
+  const cum={};(st.players||[]).forEach(p=>cum[p]=[0]);
+  (st.games||[]).forEach(g=>{
+    const c=calc(g,rule,st.kyoTop);if(!c)return;kyo+=c.kyo;
+    c.res.forEach(r=>{if(!tot[r.pid]){tot[r.pid]={pid:r.pid,pt:0,n:0,rs:0};cum[r.pid]=cum[r.pid]||[0]}const t=tot[r.pid];t.pt=Math.round((t.pt+r.pt)*10)/10;t.n++;t.rs+=r.rank});
+    Object.keys(cum).forEach(p=>cum[p].push(tot[p]?tot[p].pt:0));
+  });
+  const list=Object.values(tot).sort((a,b)=>b.pt-a.pt);
+  return {list,cum,kyo:kyo/1000,n:(st.games||[]).length};
+}
+function erf(x){const t=1/(1+.3275911*Math.abs(x));const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-.284496736)*t+.254829592)*t*Math.exp(-x*x);return x>=0?y:-y}
+const Phi=z=>.5*(1+erf(z/Math.SQRT2));
+const mean=a=>a.reduce((x,y)=>x+y,0)/a.length;
+const sd=a=>{if(a.length<2)return NaN;const m=mean(a);return Math.sqrt(a.reduce((x,y)=>x+(y-m)**2,0)/(a.length-1))};
+function ruleGames(r){
+  const out=[];
+  Object.values(S.sets).forEach(st=>{if((st.rule||'m')!==r)return;(st.games||[]).forEach(g=>{const c=calc(g,RULES[r],st.kyoTop);if(c)out.push(c.res)})});
+  return out;
+}
+function playerStats(games){
+  const P={};
+  games.forEach(res=>res.forEach(x=>{(P[x.pid]=P[x.pid]||{pid:x.pid,pts:[],ranks:[]});P[x.pid].pts.push(x.pt);P[x.pid].ranks.push(x.rank)}));
+  Object.values(P).forEach(p=>{p.n=p.pts.length;p.tot=Math.round(p.pts.reduce((a,b)=>a+b,0)*10)/10;p.avg=mean(p.pts);p.ar=mean(p.ranks);p.sd=sd(p.pts);p.se=p.sd/Math.sqrt(p.n);p.r1=p.ranks.filter(x=>x===1).length/p.n});
+  return P;
+}
+
+/* ---------- チャート ---------- */
+function ticks(lo,hi,n){const span=(hi-lo)||1,s0=span/n,mag=10**Math.floor(Math.log10(s0));const st=[1,2,2.5,5,10].map(x=>x*mag).find(x=>x>=s0);const o=[];for(let v=Math.ceil(lo/st)*st;v<=hi+1e-9;v+=st)o.push(Math.round(v*1e6)/1e6);return o}
+const charts=new WeakMap();
+const ro=new ResizeObserver(es=>es.forEach(e=>{const f=charts.get(e.target);if(f)f()}));
+function lineChart(fig,series){
+  const s=fig.querySelector('svg'),W=fig.clientWidth,H=fig.clientHeight;if(!W)return;
+  const n=Math.max(1,...series.map(x=>x.vals.length))-1;
+  const all=series.flatMap(x=>x.vals);
+  let lo=Math.min(0,...all),hi=Math.max(0,...all);if(hi-lo<20){hi+=10;lo-=10}
+  const t=ticks(lo,hi,W<520?4:6);lo=Math.min(lo,t[0]);hi=Math.max(hi,t[t.length-1]);
+  const L=42,R=10,T=10,B=26,X=i=>L+(W-L-R)*(n?i/n:0),Y=v=>T+(H-T-B)*(1-(v-lo)/(hi-lo));
+  let g='';
+  t.forEach(v=>{g+=`<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" class="${v===0?'zero':'grid'}"/><text x="${L-6}" y="${Y(v)+4}" text-anchor="end" class="tk">${v}</text>`});
+  const step=Math.max(1,Math.ceil(n/(W<520?6:12)));
+  for(let i=0;i<=n;i+=step)g+=`<text x="${X(i)}" y="${H-7}" text-anchor="middle" class="tk">${i}</text>`;
+  series.forEach(sr=>{g+=`<polyline fill="none" stroke="${sr.color}" stroke-width="${sr.me?3.2:2}" stroke-linejoin="round" stroke-linecap="round" points="${sr.vals.map((v,i)=>X(i).toFixed(1)+','+Y(v).toFixed(1)).join(' ')}"/>`});
+  s.innerHTML=g;
+}
+function distChart(fig,list){
+  const s=fig.querySelector('svg'),W=fig.clientWidth,H=fig.clientHeight;if(!W)return;
+  const ok=list.filter(d=>isFinite(d.se)&&d.se>0);if(!ok.length){s.innerHTML='';return}
+  let lo=Math.min(...ok.map(d=>d.m-3.5*d.se)),hi=Math.max(...ok.map(d=>d.m+3.5*d.se));
+  const t=ticks(lo,hi,W<520?4:8);
+  const L=10,R=10,T=10,B=26,X=v=>L+(W-L-R)*(v-lo)/(hi-lo);
+  const pdf=(x,d)=>Math.exp(-(((x-d.m)/d.se)**2)/2)/(d.se*Math.sqrt(2*Math.PI));
+  const ymax=Math.max(...ok.map(d=>pdf(d.m,d))),Y=v=>T+(H-T-B)*(1-v/ymax);
+  let g=`<line x1="${L}" x2="${W-R}" y1="${Y(0)}" y2="${Y(0)}" class="grid"/>`;
+  t.forEach(v=>{g+=`<line x1="${X(v)}" x2="${X(v)}" y1="${T}" y2="${Y(0)}" class="${v===0?'zero':'grid'}"/><text x="${X(v)}" y="${H-7}" text-anchor="middle" class="tk">${v}</text>`});
+  ok.forEach(d=>{let p=`M${X(lo)},${Y(0)}`;for(let i=0;i<=140;i++){const x=lo+(hi-lo)*i/140;p+=` L${X(x).toFixed(1)},${Y(pdf(x,d)).toFixed(1)}`}p+=` L${X(hi)},${Y(0)} Z`;
+    g+=`<path d="${p}" fill="${d.color}" fill-opacity=".16" stroke="${d.color}" stroke-width="2"/>`});
+  s.innerHTML=g;
+}
+function mountCharts(){
+  ro.disconnect();
+  document.querySelectorAll('.fig[data-c]').forEach(f=>{const spec=CH[f.dataset.c];if(!spec)return;charts.set(f,()=>spec.type==='line'?lineChart(f,spec.data):distChart(f,spec.data));ro.observe(f)});
+}
+let CH={};
+
+/* ---------- 描画 ---------- */
+function render(){
+  document.querySelectorAll('nav a').forEach(a=>a.classList.toggle('on',a.dataset.v===(S.view==='set'?'sets':S.view)));
+  if(!S.ready)return;
+  CH={};
+  const A=document.getElementById('viewA'),F=document.getElementById('formWrap'),B=document.getElementById('viewB');
+  if(S.view==='set'&&S.sets[S.setId]){A.innerHTML=vSetTop();B.innerHTML=vSetBottom();renderForm(false)}
+  else{
+    if(S.view==='set')S.view='sets';
+    F.innerHTML='';S.formKey='';B.innerHTML='';
+    A.innerHTML=S.view==='stats'?vStats():S.view==='members'?vMembers():vSets();
+  }
+  mountCharts();
+}
+function meSelect(){
+  const ms=Object.values(S.members).sort((a,b)=>a.name.localeCompare(b.name,'ja'));
+  return `<label><span class="lab">自分</span><select id="meSel"><option value="">（選ぶ）</option>${ms.map(m=>`<option value="${esc(m.id)}"${m.id===S.me?' selected':''}>${esc(m.name)}</option>`).join('')}</select></label>`;
+}
+function vSets(){
+  const sets=Object.values(S.sets).sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.created||0)-(a.created||0));
+  let h=`<div class="toolbar">${meSelect()}<button class="pri" id="newSet" style="align-self:end">＋ 新しい対局</button></div>`;
+  if(!sets.length)return h+'<div class="card empty">まだ対局がありません。「新しい対局」から始めましょう。</div>';
+  h+=sets.map(st=>{
+    const sm=setSummary(st),me=sm.list.find(x=>x.pid===S.me&&x.n);
+    const rule=(RULES[st.rule]||RULES.m).name;
+    const right=me?`<span class="big num ${cls(me.pt)}">${f1(me.pt)}</span>`:`<span class="note num">${sm.n}半荘</span>`;
+    const sub=me?`${f2(me.rs/me.n)} 位 / ${me.n}戦`:esc((st.players||[]).map(nm).join('・'))||'メンバー未登録';
+    return `<a class="setitem" href="#s-${esc(st.id)}"><b class="num">麻雀 ${esc(dlabel(st.date))}</b><span class="r">${right}</span><span class="note num">${sub}</span><span class="note r">${esc(rule)}</span></a>`;
+  }).join('');
+  return h;
+}
+function vSetTop(){
+  const st=S.sets[S.setId];
+  const ruleOpts=Object.entries(RULES).map(([k,r])=>`<option value="${k}"${k===(st.rule||'m')?' selected':''}>${r.name}</option>`).join('');
+  const inGame=new Set((st.games||[]).flatMap(g=>g.seats));
+  const chips=(st.players||[]).map(p=>`<span class="chip">${esc(nm(p))}${inGame.has(p)?'':`<button data-rmp="${esc(p)}" aria-label="外す">×</button>`}</span>`).join('');
+  const names=Object.values(S.members).map(m=>`<option value="${esc(m.name)}">`).join('');
+  return `<div class="toolbar"><button class="ghost" id="back" style="flex:0 0 auto">← 対局一覧</button></div>
+  <div class="card">
+   <div class="grid2"><label><span class="lab">日付</span><input type="date" id="sDate" value="${esc(st.date)}"></label>
+   <label><span class="lab">ルール</span><select id="sRule">${ruleOpts}</select></label></div>
+   <label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:14px;min-height:44px"><input type="checkbox" id="sKyo" style="width:20px;min-height:20px"${st.kyoTop===false?'':' checked'}>終了時の供託はトップが取る</label>
+   <h3 style="margin-top:8px">参加メンバー</h3>
+   <div class="chips">${chips||'<span class="note">まだいません</span>'}</div>
+   <div class="addrow"><input id="addP" list="mlist" placeholder="名前を入力（新しい名前は自動で登録）" autocomplete="off"><button id="addPBtn">追加</button></div>
+   <datalist id="mlist">${names}</datalist>
+  </div>`;
+}
+function vSetBottom(){
+  const st=S.sets[S.setId],sm=setSummary(st),rule=RULES[st.rule]||RULES.m;
+  if(!sm.n)return `<div class="card empty">半荘を記録すると、ここに累計グラフと順位が出ます。</div>${delSetBtn()}`;
+  const order=st.players||[];
+  const color=p=>COLORS[Math.max(0,order.indexOf(p))%COLORS.length];
+  CH.set={type:'line',data:sm.list.map(x=>({color:color(x.pid),vals:sm.cum[x.pid]||[0],me:x.pid===S.me}))};
+  const max=Math.max(1,...sm.list.map(x=>Math.abs(x.pt)));
+  const rows=sm.list.map((x,i)=>{const w=Math.round(18+82*Math.abs(x.pt)/max);const bg=x.pt>=0?'var(--plusbg)':'var(--minusbg)';
+    return `<div class="rank" style="background:linear-gradient(90deg,${bg} ${w}%,transparent ${w}%)"><span class="n num">${i+1}</span><span class="nm">${esc(nm(x.pid))}</span><span class="t num ${cls(x.pt)}">${f1(x.pt)}</span><span class="s num">${x.n}戦</span><span class="s ar num">${x.n?f2(x.rs/x.n):'-'}</span></div>`}).join('');
+  const text=`麻雀 ${dlabel(st.date)}（${rule.name}）\n`+sm.list.map((x,i)=>`${i+1}位 ${nm(x.pid)} ${f1(x.pt)}（${x.n}戦 平均${x.n?f2(x.rs/x.n):'-'}位）`).join('\n')+`\n半荘数 ${sm.n}`;
+  S.shareText=text;
+  const games=(st.games||[]).map((g,i)=>{const c=calc(g,rule,st.kyoTop);if(!c)return '';
+    return `<div class="game"><div class="ghead"><b>第${i+1}半荘</b><span><button class="ghost" data-edit="${i}">修正</button><button class="ghost warn" data-delg="${i}">${S.armed==='g'+i?'もう一度で削除':'削除'}</button></span></div>
+    <div class="gres">${c.res.map((r,k)=>`<div><span>${SEATS[k]} ${esc(nm(r.pid))}</span><b class="num ${cls(r.pt)}">${f1(r.pt)}</b> <span class="note num" style="display:inline">${r.rank}着 ${r.score.toLocaleString()}</span></div>`).join('')}</div></div>`}).join('');
+  return `<div class="card"><h2>トータル成績</h2>
+   <div class="legend">${sm.list.map(x=>`<span><i style="background:${color(x.pid)}"></i>${esc(nm(x.pid))}</span>`).join('')}</div>
+   <div class="fig" data-c="set"><svg role="img" aria-label="累計ポイントの推移"></svg></div>
+   ${rows}
+   <div class="foot"><span>供託：<b class="num">${sm.kyo.toFixed(1)}</b></span><span>半荘数合計：<b class="num">${sm.n}</b></span></div>
+   <div class="share"><a href="https://line.me/R/share?text=${encodeURIComponent(text)}" target="_blank" rel="noopener">結果をLINEで送る</a><button id="copyRes">結果をコピー</button></div>
+  </div>
+  <div class="card"><h2>半荘一覧</h2>${games}</div>${delSetBtn()}`;
+}
+function delSetBtn(){return `<div style="text-align:right"><button class="ghost warn" id="delSet">${S.armed==='set'?'もう一度押すとこの対局を削除':'この対局を削除'}</button></div>`}
+
+/* 入力フォーム（入力中に消えないよう別描画） */
+function renderForm(force){
+  const st=S.sets[S.setId],F=document.getElementById('formWrap');
+  const key=S.setId+'|'+(st.players||[]).join(',')+'|'+S.edit+'|'+(st.games||[]).length+'|'+st.rule;
+  if(!force&&key===S.formKey){updatePreview();return}
+  S.formKey=key;
+  const pl=st.players||[];
+  if(pl.length<4){F.innerHTML='<div class="card note">半荘を記録するには、参加メンバーを4人以上登録してください。</div>';return}
+  if(!S.form){
+    const last=(st.games||[])[(st.games||[]).length-1];
+    S.form={seats:last?last.seats.slice():pl.slice(0,4),scores:['','','','']};
+  }
+  const n=S.edit!=null?S.edit+1:(st.games||[]).length+1;
+  const opts=sel=>pl.map(p=>`<option value="${esc(p)}"${p===sel?' selected':''}>${esc(nm(p))}</option>`).join('');
+  F.innerHTML=`<div class="card" id="formCard"><h2>第${n}半荘を${S.edit!=null?'修正':'記録'}</h2>
+   <p class="note" style="margin:-6px 0 10px">起家から順に入力。点数は 32500 でも 325（百点単位）でもOK。3人入れると残り1人は自動で入ります。</p>
+   ${[0,1,2,3].map(i=>`<div class="seat"><span class="w">${SEATS[i]}</span><select data-seat="${i}" aria-label="${SEATS[i]}家">${opts(S.form.seats[i])}</select><input data-score="${i}" inputmode="numeric" placeholder="点数" value="${esc(S.form.scores[i])}" aria-label="${SEATS[i]}家の点数"><span class="pv num" id="pv${i}"></span></div>`).join('')}
+   <div class="msg" id="fmsg"></div>
+   <div class="formbtns"><button class="pri" id="saveG">${S.edit!=null?'修正を保存':'記録する'}</button>${S.edit!=null?'<button id="cancelEdit">やめる</button>':''}</div></div>`;
+  updatePreview();
+}
+function normScore(v){v=String(v).replace(/[,，\s]/g,'').replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-65248)).replace(/[－ー―]/g,'-');if(v===''||v==='-')return null;let n=Number(v);if(!isFinite(n))return NaN;if(Math.abs(n)<1000)n*=100;return Math.round(n/100)*100}
+function readForm(){
+  const st=S.sets[S.setId],rule=RULES[st.rule]||RULES.m,exp=rule.start*4;
+  const sc=S.form.scores.map(normScore);
+  const empty=sc.map((v,i)=>v===null?i:-1).filter(i=>i>=0);
+  let auto=null;
+  if(empty.length===1&&sc.every(v=>v===null||isFinite(v))){auto=empty[0];sc[auto]=exp-sc.reduce((a,b)=>a+(b||0),0)}
+  return {sc,auto,exp,rule,st};
+}
+function updatePreview(){
+  if(!S.form||!document.getElementById('fmsg'))return;
+  const {sc,auto,exp,rule,st}=readForm();
+  const inp=document.querySelectorAll('[data-score]');
+  inp.forEach((el,i)=>el.placeholder=i===auto?String(sc[i]):'点数');
+  const msg=document.getElementById('fmsg');
+  const dup=new Set(S.form.seats).size!==4;
+  if(sc.some(v=>v===null||!isFinite(v))||dup){[0,1,2,3].forEach(i=>document.getElementById('pv'+i).textContent='');msg.innerHTML=dup?'<span class="m">同じ人が2回選ばれています</span>':'';return}
+  const sum=sc.reduce((a,b)=>a+b,0),diff=exp-sum;
+  if(diff<0||diff%1000){msg.innerHTML=`<span class="m">合計が${Math.abs(diff).toLocaleString()}点${diff<0?'多い':'合わない'}です（合計 ${sum.toLocaleString()}点）</span>`;[0,1,2,3].forEach(i=>document.getElementById('pv'+i).textContent='');return}
+  const c=calc({seats:S.form.seats,scores:sc},rule,st.kyoTop);
+  c.res.forEach((r,i)=>{const e=document.getElementById('pv'+i);e.textContent=f1(r.pt);e.className='pv num '+cls(r.pt)});
+  msg.innerHTML=diff?`<span class="note">供託 ${diff/1000}本 ${st.kyoTop===false?'（場に残る）':'→ トップへ'}</span>`:'<span class="note">合計OK</span>';
+}
+function saveGame(){
+  const {sc,exp}=readForm();
+  const msg=document.getElementById('fmsg');
+  if(new Set(S.form.seats).size!==4){msg.innerHTML='<span class="m">4人とも別の人を選んでください</span>';return}
+  if(sc.some(v=>v===null||!isFinite(v))){msg.innerHTML='<span class="m">点数を3人以上入れてください</span>';return}
+  const diff=exp-sc.reduce((a,b)=>a+b,0);
+  if(diff<0||diff%1000){updatePreview();return}
+  const st=JSON.parse(JSON.stringify(S.sets[S.setId]));st.games=st.games||[];
+  const g={seats:S.form.seats.slice(),scores:sc};
+  if(S.edit!=null)st.games[S.edit]=g;else st.games.push(g);
+  st.updated=Date.now();
+  S.form={seats:g.seats.slice(),scores:['','','','']};S.edit=null;S.formKey='';
+  put('sets',st);
+}
+
+/* ---------- 成績 ---------- */
+function vStats(){
+  const counts={};Object.values(S.sets).forEach(st=>{const r=st.rule||'m';counts[r]=(counts[r]||0)+(st.games||[]).length});
+  const rules=Object.keys(RULES).filter(k=>counts[k]);
+  if(!rules.length)return '<div class="card empty">まだ成績がありません。対局を記録するとここに出ます。</div>';
+  if(!counts[S.statRule])S.statRule=rules[0];
+  const games=ruleGames(S.statRule),P=playerStats(games);
+  if(!P[S.statPid])S.statPid=P[S.me]?S.me:(Object.values(P).sort((a,b)=>b.n-a.n)[0]||{}).pid;
+  const rank=Object.values(P).sort((a,b)=>b.tot-a.tot);
+  let h=`<div class="card"><h2>ルール別戦績</h2><div class="chips">${rules.map(k=>`<button class="chip${k===S.statRule?' sel':''}" data-rule="${k}">${RULES[k].name}<span class="note num">(${counts[k]})</span></button>`).join('')}</div>
+   <div class="scroll"><table><thead><tr><th>#</th><th>名前</th><th>合計</th><th>打荘</th><th>平均pt</th><th>平均順位</th><th>トップ率</th></tr></thead><tbody>
+   ${rank.map((p,i)=>`<tr class="click${p.pid===S.statPid?' cur':''}" data-pid="${esc(p.pid)}"><td>${i+1}</td><td>${esc(nm(p.pid))}</td><td class="${cls(p.tot)}">${f1(p.tot)}</td><td>${p.n}</td><td class="${cls(p.avg)}">${p.avg.toFixed(2)}</td><td>${f2(p.ar)}</td><td>${(p.r1*100).toFixed(1)}%</td></tr>`).join('')}
+   </tbody></table></div><p class="note" style="margin:8px 0 0">名前を押すと、その人の詳しい成績に切り替わります。</p></div>`;
+  const p=P[S.statPid];if(!p)return h;
+  const rc=[1,2,3,4].map(r=>p.ranks.filter(x=>x===r).length/p.n);
+  CH.me={type:'dist',data:[{m:p.avg,se:p.se,color:'#2f6fec'}]};
+  h+=`<div class="card"><h2>${esc(nm(p.pid))}　${esc(RULES[S.statRule].name)} トータル戦績</h2>
+   <div class="stat"><div><span>平均ポイント</span><b class="num ${cls(p.avg)}">${p.avg.toFixed(2)}</b></div><div><span>平均順位</span><b class="num">${f2(p.ar)}</b></div><div><span>打荘数</span><b class="num">${p.n}</b></div><div><span>標準偏差</span><b class="num">${isFinite(p.sd)?p.sd.toFixed(2):'—'}</b></div></div>
+   <h3>着順の割合</h3><div class="bars">${rc.map((v,i)=>`<div><span>${i+1}着</span><i style="width:${Math.max(1,v*100)}%"></i><span class="num" style="text-align:right">${(v*100).toFixed(1)}%</span></div>`).join('')}</div>
+   ${p.n>=2&&p.se>0?`<h3 style="margin-top:14px">実力推定（1半荘あたりの本当の平均ptがどのあたりか）</h3>
+   <div class="legend"><span><i style="background:#2f6fec"></i>${esc(nm(p.pid))}の実力推定</span></div>
+   <div class="fig sm" data-c="me"><svg role="img" aria-label="実力推定の分布"></svg></div>
+   <div style="margin-top:10px">${[0,1,2,3,4,5].map(k=>`<div class="prob"><span>実力「${k}」以上の確率</span><b class="num">${((1-Phi((k-p.avg)/p.se))*100).toFixed(2)}%</b></div>`).join('')}</div>`:'<p class="note">実力推定は2半荘以上で出ます。</p>'}
+  </div>`;
+  // VS
+  const vs={};
+  games.forEach(res=>{const mine=res.find(x=>x.pid===p.pid);if(!mine)return;res.forEach(o=>{if(o.pid===p.pid)return;const v=vs[o.pid]=vs[o.pid]||{pid:o.pid,a:[],b:[],ar:[],br:[],win:0};v.a.push(mine.pt);v.b.push(o.pt);v.ar.push(mine.rank);v.br.push(o.rank);if(mine.rank<o.rank)v.win++})});
+  const vl=Object.values(vs).sort((x,y)=>y.a.length-x.a.length);
+  if(vl.length){
+    h+=`<div class="card"><h2>同卓した相手との比較</h2><p class="note" style="margin-top:-6px">一緒に打った半荘だけで比べています。「相手より強い確率」は2人の実力推定の山から計算、「先着率」は相手より上の着順で終わった割合です。</p>`;
+    vl.forEach((v,i)=>{const n=v.a.length,ma=mean(v.a),mb=mean(v.b),sa=sd(v.a)/Math.sqrt(n),sb=sd(v.b)/Math.sqrt(n);
+      const can=n>=2&&sa>0&&sb>0,pr=can?Phi((ma-mb)/Math.sqrt(sa*sa+sb*sb)):NaN;
+      if(can)CH['vs'+i]={type:'dist',data:[{m:ma,se:sa,color:'#2f6fec'},{m:mb,se:sb,color:'#c4313f'}]};
+      h+=`<div class="vs"><div class="vsrow h"><span>VS ${esc(nm(v.pid))} <span class="note num">(${n}戦)</span></span><span class="num ${cls(ma)}" style="text-align:right">${ma.toFixed(2)}</span><span class="num note" style="text-align:right">(${f2(mean(v.ar))})</span></div>
+       <div class="vsrow"><span class="note">相手の成績</span><span class="num ${cls(mb)}">${mb.toFixed(2)}</span><span class="num note">(${f2(mean(v.br))})</span></div>
+       <div class="vsrow"><span class="note">相手より強い確率</span><span class="num"><b>${can?(pr*100).toFixed(2)+'%':'—'}</b></span><span></span></div>
+       <div class="vsrow"><span class="note">先着率</span><span class="num">${(v.win/n*100).toFixed(1)}%</span><span></span></div>
+       ${can?`<div class="legend" style="margin-top:8px"><span><i style="background:#2f6fec"></i>自分（同卓時）</span><span><i style="background:#c4313f"></i>相手（同卓時）</span></div><div class="fig sm" data-c="vs${i}"><svg role="img" aria-label="自分と相手の実力推定"></svg></div>`:''}</div>`});
+    h+='</div>';
+  }
+  return h;
+}
+
+/* ---------- メンバー ---------- */
+function vMembers(){
+  const used={},inSet={};
+  Object.values(S.sets).forEach(st=>{(st.players||[]).forEach(p=>inSet[p]=1);(st.games||[]).forEach(g=>g.seats.forEach(p=>used[p]=(used[p]||0)+1))});
+  const ms=Object.values(S.members).sort((a,b)=>a.name.localeCompare(b.name,'ja'));
+  return `<div class="card"><h2>メンバー</h2>
+   <div class="addrow" style="margin-bottom:12px"><input id="newM" placeholder="名前を追加" autocomplete="off"><button class="pri" id="newMBtn">追加</button></div>
+   ${ms.length?ms.map(m=>`<div class="mem"><input data-ren="${esc(m.id)}" value="${esc(m.name)}" aria-label="名前"><span class="note num">${used[m.id]||0}戦${m.id===S.me?'・自分':''}</span><button class="ghost warn" data-delm="${esc(m.id)}"${inSet[m.id]?' disabled title="対局に参加しているため削除できません"':''}>${S.armed==='m'+m.id?'もう一度で削除':'削除'}</button></div>`).join(''):'<p class="note">まだいません。対局の画面で名前を入れても自動で登録されます。</p>'}
+   <p class="note">名前を書き換えると、過去の成績もすべて新しい名前で表示されます。対局に参加済みの人は削除できません。</p></div>
+   <div class="card"><h2>バックアップ</h2><p class="note" style="margin-top:-6px">全データをテキスト（JSON）でコピーします。</p><button id="backup">データをコピー</button> <span class="note" id="bmsg"></span>
+   <h3 style="margin-top:16px">データを読み込む</h3><p class="note" style="margin-top:-4px">別の場所でコピーしたデータを貼り付けると、ここに追加されます（同じ対局は上書き）。</p>
+   <textarea id="impTxt" rows="4" style="width:100%;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--card);color:var(--ink)"></textarea>
+   <div style="margin-top:8px"><button id="impBtn">読み込む</button> <span class="note" id="imsg"></span></div></div>`;
+}
+function findOrCreate(name){
+  name=name.trim().slice(0,30);if(!name)return null;
+  const hit=Object.values(S.members).find(m=>m.name===name);if(hit)return hit.id;
+  const m={id:uid(),name,created:Date.now()};put('members',m);return m.id;
+}
+function arm(k){S.armed=k;render();setTimeout(()=>{if(S.armed===k){S.armed=null;render()}},3000)}
+
+/* ---------- イベント ---------- */
+let curHash='';
+function go(h){curHash=h;if(!GAS){try{if(location.hash.slice(1)!==h){location.hash=h;return}}catch(e){}}route()}
+function route(){
+  const h=GAS?curHash:location.hash.slice(1);
+  if(h.startsWith('s-')){if(S.setId!==h.slice(2)){S.form=null;S.edit=null;S.formKey=''}S.view='set';S.setId=h.slice(2)}
+  else S.view=['stats','members'].includes(h)?h:'sets';
+  S.armed=null;render();window.scrollTo(0,0);
+}
+window.addEventListener('hashchange',()=>{if(!GAS)route()});
+document.addEventListener('click',e=>{const a=e.target.closest('a[href^="#"]');if(!a)return;e.preventDefault();go(a.getAttribute('href').slice(1))},true);
+document.addEventListener('click',e=>{
+  const t=e.target.closest('button,tr.click');if(!t)return;
+  const st=S.sets[S.setId];
+  if(t.id==='newSet'){const last=Object.values(S.sets).sort((a,b)=>(b.created||0)-(a.created||0))[0];const s={id:uid(),date:today(),rule:last?last.rule:'m',kyoTop:true,players:last?last.players.filter(p=>S.members[p]).slice():[],games:[],created:Date.now()};put('sets',s);go('s-'+s.id)}
+  else if(t.id==='back')go('sets');
+  else if(t.id==='addPBtn')addPlayer();
+  else if(t.dataset.rmp){const s=JSON.parse(JSON.stringify(st));s.players=s.players.filter(p=>p!==t.dataset.rmp);if(S.form)S.form.seats=S.form.seats.map(p=>p===t.dataset.rmp?'':p);S.form=null;put('sets',s)}
+  else if(t.id==='saveG')saveGame();
+  else if(t.id==='cancelEdit'){S.edit=null;S.form=null;renderForm(true)}
+  else if(t.dataset.edit!=null){const i=+t.dataset.edit,g=st.games[i];S.edit=i;S.form={seats:g.seats.slice(),scores:g.scores.map(String)};renderForm(true);document.getElementById('formCard').scrollIntoView({behavior:'smooth',block:'start'})}
+  else if(t.dataset.delg!=null){const k='g'+t.dataset.delg;if(S.armed!==k)return arm(k);const s=JSON.parse(JSON.stringify(st));s.games.splice(+t.dataset.delg,1);S.armed=null;S.edit=null;S.form=null;put('sets',s)}
+  else if(t.id==='delSet'){if(S.armed!=='set')return arm('set');S.armed=null;const id=S.setId;go('sets');del('sets',id)}
+  else if(t.id==='copyRes'){copyText(S.shareText||'',ok=>{t.textContent=ok?'コピーしました':'コピーできませんでした'})}
+  else if(t.dataset.rule){S.statRule=t.dataset.rule;S.statPid=null;render()}
+  else if(t.dataset.pid){S.statPid=t.dataset.pid;render()}
+  else if(t.id==='newMBtn'){const el=document.getElementById('newM');if(findOrCreate(el.value))el.value=''}
+  else if(t.dataset.delm){const k='m'+t.dataset.delm;if(S.armed!==k)return arm(k);S.armed=null;if(S.me===t.dataset.delm){S.me='';lsSet(LSME,'')}del('members',t.dataset.delm)}
+  else if(t.id==='impBtn'){const m=importData(document.getElementById('impTxt').value);const el=document.getElementById('imsg');if(el)el.textContent=m}
+  else if(t.id==='backup'){copyText(JSON.stringify({members:S.members,sets:S.sets}),ok=>document.getElementById('bmsg').textContent=ok?'コピーしました':'コピーできませんでした')}
+});
+function addPlayer(){
+  const el=document.getElementById('addP'),id=findOrCreate(el.value);if(!id)return;
+  const s=JSON.parse(JSON.stringify(S.sets[S.setId]));s.players=s.players||[];
+  if(!s.players.includes(id))s.players.push(id);
+  if(S.form&&S.form.seats.filter(Boolean).length<4)S.form=null;
+  put('sets',s);const n=document.getElementById('addP');if(n){n.value='';n.focus()}
+}
+document.addEventListener('keydown',e=>{if(e.key==='Enter'){if(e.target.id==='addP'){e.preventDefault();addPlayer()}else if(e.target.id==='newM'){e.preventDefault();document.getElementById('newMBtn').click()}else if(e.target.dataset&&e.target.dataset.ren!=null)e.target.blur()}});
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.dataset.score!=null){S.form.scores[+t.dataset.score]=t.value;updatePreview()}
+});
+document.addEventListener('change',e=>{
+  const t=e.target,st=S.sets[S.setId];
+  if(t.id==='meSel'){S.me=t.value;lsSet(LSME,t.value);render()}
+  else if(t.dataset.seat!=null){S.form.seats[+t.dataset.seat]=t.value;updatePreview()}
+  else if(t.id==='sDate'&&t.value){put('sets',Object.assign(JSON.parse(JSON.stringify(st)),{date:t.value}))}
+  else if(t.id==='sRule'){put('sets',Object.assign(JSON.parse(JSON.stringify(st)),{rule:t.value}))}
+  else if(t.id==='sKyo'){put('sets',Object.assign(JSON.parse(JSON.stringify(st)),{kyoTop:t.checked}))}
+  else if(t.dataset.ren!=null){const m=S.members[t.dataset.ren],v=t.value.trim().slice(0,30);if(m&&v&&v!==m.name)put('members',Object.assign({},m,{name:v}));else t.value=m?m.name:''}
+});
+route();boot();
+if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>
