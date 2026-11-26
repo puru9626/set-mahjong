@@ -129,7 +129,7 @@ tr.click{cursor:pointer}tr.cur td{background:var(--soft)}
 </style>
 </head>
 <body>
-<header><div class="hin"><h1><img src="icon-192.png" alt="">セット麻雀 成績</h1>
+<header><div class="hin"><h1><img src="icon-192.png" alt="">セット麻雀 成績<span id="gLabel" class="note" style="font-weight:500;font-size:13px;margin-left:auto;max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span></h1>
 <nav><a href="#sets" data-v="sets">対局</a><a href="#stats" data-v="stats">成績</a><a href="#members" data-v="members">メンバー</a><a href="#settings-me" data-v="settings-me">設定</a></nav></div></header>
 <main>
 <div id="banner"></div>
@@ -165,10 +165,18 @@ const dlabel=d=>(d||'').replace(/-/g,'/');
 /* ---------- 保存 ---------- */
 const GAS=false;
 const API=((window.SET_MJ_CONFIG||{}).apiUrl||'').trim();
+const LSG='set-mj-group-v1';
+// グループ：招待URL（?g=…&k=…）→ この端末に保存
+let GROUP=null;
+try{GROUP=JSON.parse(lsGet(LSG)||'null')}catch(e){}
+{const q=new URLSearchParams(location.search),g=q.get('g'),k=q.get('k');
+ if(g&&k&&/^[A-Za-z0-9]{4,40}$/.test(g)&&/^[A-Za-z0-9]{8,64}$/.test(k)&&(!GROUP||GROUP.g!==g||GROUP.k!==k)){GROUP={g,k,name:''};lsSet(LSG,JSON.stringify(GROUP))}}
+function inviteUrl(){return GROUP?location.origin+location.pathname+'?g='+encodeURIComponent(GROUP.g)+'&k='+encodeURIComponent(GROUP.k):''}
+function keepGroupInUrl(){try{if(GROUP&&!location.search.includes('g='+GROUP.g))history.replaceState(null,'',inviteUrl()+location.hash)}catch(e){}}
 let chain=Promise.resolve(),pending=0;
 function showErr(e){document.getElementById('banner').innerHTML='<div class="banner m">保存できませんでした（'+esc(e&&e.message||'通信エラー')+'）。電波を確認して、もう一度お試しください。</div>'}
 async function api(body){
-  const r=await fetch(API,{method:'POST',body:JSON.stringify(body)});
+  const r=await fetch(API,{method:'POST',body:JSON.stringify(Object.assign({g:GROUP&&GROUP.g,k:GROUP&&GROUP.k},body))});
   const j=await r.json();if(!j.ok)throw new Error(j.error||'error');return j;
 }
 function write(body){
@@ -182,12 +190,16 @@ function useLocal(msg){
   S.ready=true;document.getElementById('banner').innerHTML='<div class="banner">'+esc(msg)+'</div>';render();
 }
 async function load(first){
+  if(!GROUP)return;
   if(!first&&pending)return;
   try{
-    const r=await fetch(API+(API.includes('?')?'&':'?')+'op=load&t='+Date.now(),{cache:'no-store'});
-    const j=await r.json();if(!j.ok)throw new Error(j.error);
+    const r=await fetch(API+(API.includes('?')?'&':'?')+'op=load&g='+encodeURIComponent(GROUP.g)+'&k='+encodeURIComponent(GROUP.k)+'&t='+Date.now(),{cache:'no-store'});
+    const j=await r.json();
+    if(!j.ok){if(j.error==='bad group'){S.badGroup=true;S.ready=true;document.getElementById('banner').innerHTML='';render();return}throw new Error(j.error)}
     if(!first&&pending)return;
+    S.badGroup=false;
     S.members=j.data.members||{};S.sets=j.data.sets||{};
+    if(j.group&&j.group.name&&GROUP.name!==j.group.name){GROUP.name=j.group.name;lsSet(LSG,JSON.stringify(GROUP))}
     if(!S.ready){S.ready=true;document.getElementById('banner').innerHTML=''}
     const ae=document.activeElement;
     if(first||!ae||!ae.matches('input,select,textarea'))render();
@@ -197,9 +209,28 @@ async function load(first){
 }
 async function boot(){
   if(!API){useLocal('保存先（config.js の apiUrl）が未設定のため、この端末だけに保存されます。');return}
+  if(!GROUP){S.ready=true;render();return}
+  keepGroupInUrl();
   load(true);
   setInterval(()=>{if(document.visibilityState==='visible')load(false)},20000);
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')load(false)});
+}
+async function createGroup(name){
+  const msg=document.getElementById('gmsg');
+  name=name.trim().slice(0,30);if(!name){msg.textContent='グループ名を入れてください';return}
+  msg.textContent='作成中…';
+  try{const r=await fetch(API,{method:'POST',body:JSON.stringify({op:'createGroup',name})});const j=await r.json();if(!j.ok)throw new Error(j.error);
+    GROUP={g:j.g,k:j.k,name};lsSet(LSG,JSON.stringify(GROUP));S.badGroup=false;S.ready=false;keepGroupInUrl();
+    location.hash='settings-me';boot();
+  }catch(e){msg.textContent='作成できませんでした（'+(e.message||'通信エラー')+'）'}
+}
+function leaveGroup(){GROUP=null;try{localStorage.removeItem(LSG)}catch(e){}S.members={};S.sets={};S.badGroup=false;try{history.replaceState(null,'',location.pathname)}catch(e){}render()}
+function vWelcome(){
+  return `<div class="card"><h2>${S.badGroup?'このグループには入れません':'グループに参加しましょう'}</h2>
+   <p class="note" style="margin-top:-6px">${S.badGroup?'招待URLが間違っているか、グループがなくなっています。もう一度招待URLを開いてもらうか、新しくグループを作ってください。':'成績はグループごとに分かれています。一緒に打つ人から<b>招待URL</b>をもらって開くと、そのグループに入れます。'}</p></div>
+   <div class="card"><h2>新しくグループを作る</h2><p class="note" style="margin-top:-6px">作ると招待URLができるので、一緒に打つ人に送ってください。</p>
+   <div class="addrow"><input id="gName" placeholder="グループ名（例：木曜セット）" autocomplete="off"><button class="pri" id="gCreate">作成</button></div>
+   <div class="note" id="gmsg" style="margin-top:8px;min-height:1.4em"></div></div>`;
 }
 function copyText(text,done){
   const fb=()=>{const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();let ok=false;try{ok=document.execCommand('copy')}catch(e){}ta.remove();done(ok)};
@@ -323,8 +354,10 @@ let CH={};
 /* ---------- 描画 ---------- */
 function render(){
   document.querySelectorAll('nav a').forEach(a=>a.classList.toggle('on',a.dataset.v===(S.view==='set'?'sets':S.view)));
+  const gl=document.getElementById('gLabel');if(gl)gl.textContent=GROUP&&GROUP.name?GROUP.name:'';
   if(!S.ready)return;
   CH={};
+  if(API&&(!GROUP||S.badGroup)){document.getElementById('viewA').innerHTML=vWelcome();document.getElementById('formWrap').innerHTML='';document.getElementById('viewB').innerHTML='';S.formKey='';return}
   const A=document.getElementById('viewA'),F=document.getElementById('formWrap'),B=document.getElementById('viewB');
   if(S.view==='set'&&S.sets[S.setId]){A.innerHTML=vSetTop();B.innerHTML=vSetBottom();renderForm(false)}
   else{
@@ -525,7 +558,12 @@ function vMembers(){
    <p class="note">名前を書き換えると、過去の成績もすべて新しい名前で表示されます。対局に参加済みの人は削除できません。</p></div>`;
 }
 function vSettings(){
-  return `<div class="card"><h2>自分</h2><p class="note" style="margin-top:-6px">対局一覧や成績で「自分」として表示する人です。この端末に保存されるので、一度決めればずっとそのままです（一緒に使う人はそれぞれの端末で自分を選びます）。</p>
+  const iu=inviteUrl();
+  return `${GROUP?`<div class="card"><h2>グループ：${esc(GROUP.name||'（名前なし）')}</h2><p class="note" style="margin-top:-6px">この招待URLを開いた人だけが、このグループの成績を見て入力できます。<b>一緒に打つ人以外には送らないでください。</b></p>
+   <input readonly value="${esc(iu)}" style="font-size:13px" onclick="this.select()">
+   <div class="share"><a href="https://line.me/R/share?text=${encodeURIComponent('セット麻雀の成績アプリに招待します\n'+iu)}" target="_blank" rel="noopener">LINEで招待</a><button id="copyInv">URLをコピー</button></div>
+   <p class="note" style="margin:12px 0 0">ホーム画面に追加するときは、この招待URLを開いた画面から追加してください。</p>
+   <div style="text-align:right;margin-top:6px"><button class="ghost warn" id="leaveG">${S.armed==='leave'?'もう一度押すとこの端末から抜けます':'この端末をグループから外す'}</button></div></div>`:''}<div class="card"><h2>自分</h2><p class="note" style="margin-top:-6px">対局一覧や成績で「自分」として表示する人です。この端末に保存されるので、一度決めればずっとそのままです（一緒に使う人はそれぞれの端末で自分を選びます）。</p>
    ${meSelect()}<div class="note" id="meMsg" style="margin-top:8px;min-height:1.4em"></div></div>
 <div class="card"><h2>バックアップ</h2><p class="note" style="margin-top:-6px">全データをテキスト（JSON）でコピーします。</p><button id="backup">データをコピー</button> <span class="note" id="bmsg"></span>
    <h3 style="margin-top:16px">データを読み込む</h3><p class="note" style="margin-top:-4px">別の場所でコピーしたデータを貼り付けると、ここに追加されます（同じ対局は上書き）。</p>
@@ -568,6 +606,9 @@ document.addEventListener('click',e=>{
   else if(t.dataset.pid){S.statPid=t.dataset.pid;render()}
   else if(t.id==='newMBtn'){const el=document.getElementById('newM');if(findOrCreate(el.value))el.value=''}
   else if(t.dataset.delm){const k='m'+t.dataset.delm;if(S.armed!==k)return arm(k);S.armed=null;if(S.me===t.dataset.delm){S.me='';lsSet(LSME,'')}del('members',t.dataset.delm)}
+  else if(t.id==='gCreate')createGroup(document.getElementById('gName').value)
+  else if(t.id==='copyInv')copyText(inviteUrl(),ok=>{t.textContent=ok?'コピーしました':'コピーできませんでした'})
+  else if(t.id==='leaveG'){if(S.armed!=='leave')return arm('leave');S.armed=null;leaveGroup()}
   else if(t.id==='impBtn'){const m=importData(document.getElementById('impTxt').value);const el=document.getElementById('imsg');if(el)el.textContent=m}
   else if(t.id==='backup'){copyText(JSON.stringify({members:S.members,sets:S.sets}),ok=>document.getElementById('bmsg').textContent=ok?'コピーしました':'コピーできませんでした')}
 });
@@ -578,7 +619,7 @@ function addPlayer(){
   if(S.form&&S.form.seats.filter(Boolean).length<4)S.form=null;
   put('sets',s);const n=document.getElementById('addP');if(n){n.value='';n.focus()}
 }
-document.addEventListener('keydown',e=>{if(e.key==='Enter'){if(e.target.id==='addP'){e.preventDefault();addPlayer()}else if(e.target.id==='newM'){e.preventDefault();document.getElementById('newMBtn').click()}else if(e.target.dataset&&e.target.dataset.ren!=null)e.target.blur()}});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'){if(e.target.id==='gName'){e.preventDefault();createGroup(e.target.value)}else if(e.target.id==='addP'){e.preventDefault();addPlayer()}else if(e.target.id==='newM'){e.preventDefault();document.getElementById('newMBtn').click()}else if(e.target.dataset&&e.target.dataset.ren!=null)e.target.blur()}});
 document.addEventListener('input',e=>{
   const t=e.target;
   if(t.dataset.score!=null){S.form.scores[+t.dataset.score]=t.value;updatePreview()}
