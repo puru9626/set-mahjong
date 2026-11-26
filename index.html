@@ -61,6 +61,7 @@ select,input{min-height:44px;border:1px solid var(--line);border-radius:10px;bac
 .chip button{min-height:32px;padding:0 8px;border:0;background:transparent;color:var(--mute)}
 .chip.sel{background:var(--acsoft);border-color:var(--accent);color:var(--accent)}
 button.chip{padding:0 14px}
+.chip.tog:disabled{opacity:1;cursor:default}
 .addrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px;margin-bottom:6px}
 .legend i{display:inline-block;width:18px;height:3px;border-radius:2px;vertical-align:middle;margin-right:6px}
@@ -319,17 +320,19 @@ function vSetTop(){
   const st=S.sets[S.setId];
   const ruleOpts=Object.entries(RULES).map(([k,r])=>`<option value="${k}"${k===(st.rule||'m')?' selected':''}>${r.name}</option>`).join('');
   const inGame=new Set((st.games||[]).flatMap(g=>g.seats));
-  const chips=(st.players||[]).map(p=>`<span class="chip">${esc(nm(p))}${inGame.has(p)?'':`<button data-rmp="${esc(p)}" aria-label="外す">×</button>`}</span>`).join('');
-  const names=Object.values(S.members).map(m=>`<option value="${esc(m.name)}">`).join('');
+  const pl=st.players||[];
+  const freq={};Object.values(S.sets).forEach(x=>(x.players||[]).forEach(p=>freq[p]=(freq[p]||0)+1));
+  const ms=Object.values(S.members).sort((a,b)=>(freq[b.id]||0)-(freq[a.id]||0)||a.name.localeCompare(b.name,'ja'));
+  const chips=ms.map(m=>{const on=pl.includes(m.id),lock=on&&inGame.has(m.id);
+    return `<button class="chip tog${on?' sel':''}" data-tog="${esc(m.id)}" aria-pressed="${on}"${lock?' disabled title="半荘に入っているので外せません"':''}>${on?'✓ ':''}${esc(m.name)}</button>`}).join('');
   return `<div class="toolbar"><button class="ghost" id="back" style="flex:0 0 auto">← 対局一覧</button></div>
   <div class="card">
    <div class="grid2"><label><span class="lab">日付</span><input type="date" id="sDate" value="${esc(st.date)}"></label>
    <label><span class="lab">ルール</span><select id="sRule">${ruleOpts}</select></label></div>
    <label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:14px;min-height:44px"><input type="checkbox" id="sKyo" style="width:20px;min-height:20px"${st.kyoTop===false?'':' checked'}>終了時の供託はトップが取る</label>
-   <h3 style="margin-top:8px">参加メンバー</h3>
-   <div class="chips">${chips||'<span class="note">まだいません</span>'}</div>
-   <div class="addrow"><input id="addP" list="mlist" placeholder="名前を入力（新しい名前は自動で登録）" autocomplete="off"><button id="addPBtn">追加</button></div>
-   <datalist id="mlist">${names}</datalist>
+   <h3 style="margin-top:8px">参加メンバー <span class="note">（タップで選択・${pl.length}人）</span></h3>
+   <div class="chips">${chips||'<span class="note">まだ登録されたメンバーがいません</span>'}</div>
+   <div class="addrow"><input id="addP" placeholder="新しいメンバーの名前" autocomplete="off"><button id="addPBtn">追加</button></div>
   </div>`;
 }
 function vSetBottom(){
@@ -497,6 +500,7 @@ document.addEventListener('click',e=>{
   if(t.id==='newSet'){const last=Object.values(S.sets).sort((a,b)=>(b.created||0)-(a.created||0))[0];const s={id:uid(),date:today(),rule:last?last.rule:'m',kyoTop:true,players:last?last.players.filter(p=>S.members[p]).slice():[],games:[],created:Date.now()};put('sets',s);go('s-'+s.id)}
   else if(t.id==='back')go('sets');
   else if(t.id==='addPBtn')addPlayer();
+  else if(t.dataset.tog){const id=t.dataset.tog,s=JSON.parse(JSON.stringify(st));s.players=s.players||[];if(s.players.includes(id)){if((s.games||[]).some(g=>g.seats.includes(id)))return;s.players=s.players.filter(p=>p!==id)}else s.players.push(id);S.form=null;put('sets',s)}
   else if(t.dataset.rmp){const s=JSON.parse(JSON.stringify(st));s.players=s.players.filter(p=>p!==t.dataset.rmp);if(S.form)S.form.seats=S.form.seats.map(p=>p===t.dataset.rmp?'':p);S.form=null;put('sets',s)}
   else if(t.id==='saveG')saveGame();
   else if(t.id==='cancelEdit'){S.edit=null;S.form=null;renderForm(true)}
