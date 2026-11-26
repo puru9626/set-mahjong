@@ -129,10 +129,10 @@ tr.click{cursor:pointer}tr.cur td{background:var(--soft)}
 <script>
 {
 const RULES={
-  m:{name:'Mリーグルール',start:25000,back:30000,uma:[30,10,-10,-30]},
-  a12:{name:'赤有オカ有1-2',start:25000,back:30000,uma:[20,10,-10,-20]},
-  sai:{name:'最高位戦ルール',start:30000,back:30000,uma:[30,10,-10,-30]},
-  ren:{name:'連盟Aルール',start:30000,back:30000,uma:[15,5,-5,-15]}
+  m:{name:'Mリーグルール',start:25000,back:30000,uma:[30,10,-10,-30],tie:'split'},
+  a12:{name:'赤有オカ有1-2',start:25000,back:30000,uma:[20,10,-10,-20],tie:'split'},
+  sai:{name:'最高位戦ルール',start:30000,back:30000,uma:[30,10,-10,-30],tie:'order'},
+  ren:{name:'連盟Aルール',start:30000,back:30000,uma:[15,5,-5,-15],tie:'order'}
 };
 const COLORS=['#2f6fec','#11905c','#d93a4b','#e09a12','#8a4fd8','#0aa3b5','#e0612b','#6b7585'];
 const SEATS=['東','南','西','北'];
@@ -211,12 +211,16 @@ function calc(g,rule,kyoTop){
   const kyo=Math.max(0,rule.start*4-sc.reduce((a,b)=>a+b,0));
   const order=[0,1,2,3].sort((a,b)=>sc[b]-sc[a]||a-b);
   const oka=(rule.back-rule.start)*4/1000;
+  const place=r=>rule.uma[r]+(r===0?oka:0)+(r===0&&kyoTop!==false?kyo/1000:0);
   const out=g.seats.map((pid,i)=>({pid,score:sc[i],rank:0,pt:0}));
-  order.forEach((si,r)=>{
-    const o=out[si];o.rank=r+1;
-    const s=o.score+(r===0&&kyoTop!==false?kyo:0);
-    o.pt=Math.round(((s-rule.back)/1000+rule.uma[r]+(r===0?oka:0))*10)/10;
-  });
+  let r=0;
+  while(r<4){
+    let e=r;
+    if(rule.tie==='split')while(e+1<4&&sc[order[e+1]]===sc[order[r]])e++;
+    let bonus=0;for(let k=r;k<=e;k++)bonus+=place(k);bonus/=(e-r+1);
+    for(let k=r;k<=e;k++){const o=out[order[k]];o.rank=r+1;o.pt=Math.round(((o.score-rule.back)/1000+bonus)*10)/10}
+    r=e+1;
+  }
   return {res:out,kyo:kyoTop===false?kyo:0};
 }
 function setSummary(st){
@@ -403,7 +407,7 @@ function updatePreview(){
   const sum=sc.reduce((a,b)=>a+b,0),diff=exp-sum;
   if(diff<0||diff%1000){msg.innerHTML=`<span class="m">合計が${Math.abs(diff).toLocaleString()}点${diff<0?'多い':'合わない'}です（合計 ${sum.toLocaleString()}点）</span>`;[0,1,2,3].forEach(i=>document.getElementById('pv'+i).textContent='');return}
   const c=calc({seats:S.form.seats,scores:sc},rule,st.kyoTop);
-  const tn=document.getElementById('tieNote');if(tn)tn.textContent=new Set(sc).size<4?' 同点のときは上の行の人を上位にしています。':'';
+  const tn=document.getElementById('tieNote');if(tn)tn.textContent=new Set(sc).size<4?(rule.tie==='split'?' 同点のため、順位点（ウマ・オカ）を折半しています。':' 同点のときは上の行の人（上家）を上位にしています。'):'';
   c.res.forEach((r,i)=>{const e=document.getElementById('pv'+i);e.textContent=f1(r.pt);e.className='pv num '+cls(r.pt)});
   msg.innerHTML=diff?`<span class="note">供託 ${diff/1000}本 ${st.kyoTop===false?'（場に残る）':'→ トップへ'}</span>`:'<span class="note">合計OK</span>';
 }
