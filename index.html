@@ -45,7 +45,14 @@ button.pri{background:var(--accent);border-color:var(--accent);color:#fff;font-w
 button.ghost{border-color:transparent;background:transparent;color:var(--mute)}
 button.warn{color:var(--minus)}
 button:disabled{opacity:.4;cursor:default}
-select,input{min-height:44px;border:1px solid var(--line);border-radius:10px;background:var(--card);padding:0 10px;width:100%}
+select,input{display:block;height:48px;min-height:48px;border:1px solid var(--line);border-radius:12px;background:var(--card);padding:0 12px;width:100%;margin:0;line-height:46px;-webkit-appearance:none;appearance:none}
+select{padding-right:34px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%236b7585' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;text-overflow:ellipsis;white-space:nowrap;overflow:hidden}
+input[type=date]{min-width:0;max-width:100%;text-align:left}
+input[type=date]::-webkit-date-and-time-value{text-align:left;margin:0}
+input[type=date]::-webkit-calendar-picker-indicator{opacity:.55}
+input[type=checkbox]{-webkit-appearance:auto;appearance:auto;display:inline-block;height:20px;min-height:20px;width:20px;padding:0;margin:0;accent-color:var(--accent)}
+textarea{-webkit-appearance:none;appearance:none}
+.lab{display:block;font-size:13px;color:var(--mute);margin-bottom:6px;line-height:1.2}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .p{color:var(--plus)}.m{color:var(--minus)}
 .setitem{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--card);margin-bottom:10px;text-decoration:none;color:inherit}
@@ -54,15 +61,18 @@ select,input{min-height:44px;border:1px solid var(--line);border-radius:10px;bac
 .setitem .big{font-size:20px;font-weight:700}
 .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
 .toolbar>*{flex:1 1 160px}
-.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
-.lab{display:block;font-size:13px;color:var(--mute);margin-bottom:4px}
-.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:12px;align-items:end}
+.grid2>label{display:block;min-width:0}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-bottom:12px}
+.pgrid .chip{width:100%;justify-content:center;border-radius:12px;min-height:46px;padding:0 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex}
 .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:0 6px 0 14px;min-height:40px;background:var(--card)}
 .chip button{min-height:32px;padding:0 8px;border:0;background:transparent;color:var(--mute)}
 .chip.sel{background:var(--acsoft);border-color:var(--accent);color:var(--accent)}
 button.chip{padding:0 14px}
 .chip.tog:disabled{opacity:1;cursor:default}
-.addrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+.addrow{display:grid;grid-template-columns:minmax(0,1fr) 5.5em;gap:8px}
+.addrow button{height:48px}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px;margin-bottom:6px}
 .legend i{display:inline-block;width:18px;height:3px;border-radius:2px;vertical-align:middle;margin-right:6px}
 .fig{position:relative;min-height:260px}.fig>svg{position:absolute;inset:0;width:100%;height:100%}
@@ -83,8 +93,9 @@ svg .tk{fill:var(--mute);font-size:11px;font-variant-numeric:tabular-nums}
 .gres div{background:var(--soft);border-radius:8px;padding:6px 8px;font-size:14px}
 .gres div span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .gres div b{font-size:15px}
-.seat{display:grid;grid-template-columns:minmax(0,1fr) 8em 4.6em;gap:8px;align-items:center;margin-bottom:8px}
-.seat .w{font-weight:700;font-size:17px;padding-left:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seat{display:grid;grid-template-columns:minmax(0,1fr) 7.5em 4.8em;gap:8px;align-items:center;margin-bottom:8px}
+.seat input{text-align:right}
+.seat .w{display:flex;align-items:center;height:48px;padding:0 12px;border-radius:12px;background:var(--soft);font-weight:700;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .seat .pv{text-align:right;font-weight:700}
 .msg{min-height:1.5em;font-size:14px;margin:6px 0}
 .formbtns{display:flex;gap:10px}.formbtns .pri{flex:1}
@@ -112,7 +123,7 @@ tr.click{cursor:pointer}tr.cur td{background:var(--soft)}
  .gres{grid-template-columns:repeat(2,minmax(0,1fr))}
  .rank{grid-template-columns:1.6em minmax(0,1fr) 4.8em 3em;}
  .rank .s.ar{display:none}
- .seat{grid-template-columns:minmax(0,1fr) 7em 4.4em;gap:6px}
+ .seat{grid-template-columns:minmax(0,1fr) 6.6em 4.4em;gap:6px}
 }
 @media (prefers-reduced-motion:no-preference){.card{animation:in .25s ease-out}@keyframes in{from{opacity:0;transform:translateY(4px)}}}
 </style>
@@ -269,13 +280,24 @@ function lineChart(fig,series){
   const n=Math.max(1,...series.map(x=>x.vals.length))-1;
   const all=series.flatMap(x=>x.vals);
   let lo=Math.min(0,...all),hi=Math.max(0,...all);if(hi-lo<20){hi+=10;lo-=10}
-  const t=ticks(lo,hi,W<520?4:6);lo=Math.min(lo,t[0]);hi=Math.max(hi,t[t.length-1]);
-  const L=42,R=10,T=10,B=26,X=i=>L+(W-L-R)*(n?i/n:0),Y=v=>T+(H-T-B)*(1-(v-lo)/(hi-lo));
-  let g='';
-  t.forEach(v=>{g+=`<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" class="${v===0?'zero':'grid'}"/><text x="${L-6}" y="${Y(v)+4}" text-anchor="end" class="tk">${v}</text>`});
-  const step=Math.max(1,Math.ceil(n/(W<520?6:12)));
-  for(let i=0;i<=n;i+=step)g+=`<text x="${X(i)}" y="${H-7}" text-anchor="middle" class="tk">${i}</text>`;
-  series.forEach(sr=>{g+=`<polyline fill="none" stroke="${sr.color}" stroke-width="${sr.me?3.2:2}" stroke-linejoin="round" stroke-linecap="round" points="${sr.vals.map((v,i)=>X(i).toFixed(1)+','+Y(v).toFixed(1)).join(' ')}"/>`});
+  const t=ticks(lo,hi,W<520?6:8);lo=Math.min(lo,t[0]);hi=Math.max(hi,t[t.length-1]);
+  const L=40,R=W<520?58:72,T=12,B=30,X=i=>L+(W-L-R)*(n?i/n:0),Y=v=>T+(H-T-B)*(1-(v-lo)/(hi-lo));
+  let g=`<rect x="${L}" y="${T}" width="${W-L-R}" height="${H-T-B}" fill="var(--soft)" fill-opacity=".55" rx="4"/>`;
+  // 横線（ポイント）
+  t.forEach(v=>{g+=`<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" class="${v===0?'zero':'grid'}"${v===0?' stroke-width="1.5"':''}/><text x="${L-6}" y="${Y(v)+4}" text-anchor="end" class="tk">${v>0?'+'+v:v}</text>`});
+  // 縦線（半荘ごと）
+  const step=Math.max(1,Math.ceil(n/(W<520?8:14)));
+  for(let i=0;i<=n;i++){const lab=i%step===0||i===n;g+=`<line x1="${X(i)}" x2="${X(i)}" y1="${T}" y2="${H-B}" class="grid"${lab?'':' stroke-opacity=".5"'}/>`;
+    if(lab)g+=`<text x="${X(i)}" y="${H-10}" text-anchor="middle" class="tk">${i===0?'開始':i}</text>`}
+  // 線と点
+  series.forEach(sr=>{const pts=sr.vals.map((v,i)=>[X(i),Y(v)]);
+    g+=`<polyline fill="none" stroke="${sr.color}" stroke-width="${sr.me?3.2:2.2}" stroke-linejoin="round" stroke-linecap="round" points="${pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}"/>`;
+    if(n<=30)pts.forEach((p,i)=>{if(i)g+=`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${sr.me?3.6:3}" fill="#fff" stroke="${sr.color}" stroke-width="2"/>`})});
+  // 右端に最終ポイント（重ならないようにずらす）
+  const ends=series.map(sr=>({c:sr.color,v:sr.vals[sr.vals.length-1],y:Y(sr.vals[sr.vals.length-1])})).sort((a,b)=>a.y-b.y);
+  for(let i=1;i<ends.length;i++)if(ends[i].y-ends[i-1].y<15)ends[i].y=ends[i-1].y+15;
+  const over=ends.length?ends[ends.length-1].y-(H-B+4):0;if(over>0)ends.forEach(e=>e.y-=over);
+  ends.forEach(e=>{g+=`<text x="${W-R+8}" y="${(e.y+4).toFixed(1)}" fill="${e.c}" style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums">${f1(e.v)}</text>`});
   s.innerHTML=g;
 }
 function distChart(fig,list){
@@ -342,9 +364,9 @@ function vSetTop(){
   <div class="card">
    <div class="grid2"><label><span class="lab">日付</span><input type="date" id="sDate" value="${esc(st.date)}"></label>
    <label><span class="lab">ルール</span><select id="sRule">${ruleOpts}</select></label></div>
-   <label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:14px;min-height:44px"><input type="checkbox" id="sKyo" style="width:20px;min-height:20px"${st.kyoTop===false?'':' checked'}>終了時の供託はトップが取る</label>
+   <label style="display:flex;gap:10px;align-items:center;margin-top:12px;font-size:14px;min-height:44px"><input type="checkbox" id="sKyo"${st.kyoTop===false?'':' checked'}>終了時の供託はトップが取る</label>
    <h3 style="margin-top:8px">参加メンバー <span class="note">（タップで選択・${pl.length}人）</span></h3>
-   <div class="chips">${chips||'<span class="note">まだ登録されたメンバーがいません</span>'}</div>
+   ${chips?`<div class="pgrid">${chips}</div>`:'<p class="note">まだ登録されたメンバーがいません</p>'}
    <div class="addrow"><input id="addP" placeholder="新しいメンバーの名前" autocomplete="off"><button id="addPBtn">追加</button></div>
   </div>`;
 }
@@ -364,7 +386,7 @@ function vSetBottom(){
     <div class="gres">${c.res.slice().sort((a,b)=>a.rank-b.rank).map(r=>`<div><span>${esc(nm(r.pid))}</span><b class="num ${cls(r.pt)}">${f1(r.pt)}</b> <span class="note num" style="display:inline">${r.rank}着 ${r.score.toLocaleString()}</span></div>`).join('')}</div></div>`}).join('');
   return `<div class="card"><h2>トータル成績</h2>
    <div class="legend">${sm.list.map(x=>`<span><i style="background:${color(x.pid)}"></i>${esc(nm(x.pid))}</span>`).join('')}</div>
-   <div class="fig" data-c="set"><svg role="img" aria-label="累計ポイントの推移"></svg></div>
+   <div class="fig" data-c="set" style="min-height:300px"><svg role="img" aria-label="累計ポイントの推移"></svg></div>
    ${rows}
    <div class="foot"><span>供託：<b class="num">${sm.kyo.toFixed(1)}</b></span><span>半荘数合計：<b class="num">${sm.n}</b></span></div>
    <div class="share"><a href="https://line.me/R/share?text=${encodeURIComponent(text)}" target="_blank" rel="noopener">結果をLINEで送る</a><button id="copyRes">結果をコピー</button></div>
