@@ -205,23 +205,32 @@ function importData(txt){
 }
 
 /* ---------- 計算 ---------- */
+// 100点＝1単位（0.1pt）で整数計算する
+function splitU(total,n){const base=Math.floor(total/n),rem=total-base*n;return Array.from({length:n},(_,i)=>base+(i<rem?1:0))}
 function calc(g,rule,kyoTop){
   if(!g||!Array.isArray(g.seats)||g.seats.length!==4)return null;
   const sc=g.scores.map(Number);
-  const kyo=Math.max(0,rule.start*4-sc.reduce((a,b)=>a+b,0));
+  const kyoU=Math.max(0,(rule.start*4-sc.reduce((a,b)=>a+b,0))/100);
   const order=[0,1,2,3].sort((a,b)=>sc[b]-sc[a]||a-b);
-  const oka=(rule.back-rule.start)*4/1000;
-  const place=r=>rule.uma[r]+(r===0?oka:0)+(r===0&&kyoTop!==false?kyo/1000:0);
+  const okaU=(rule.back-rule.start)*4/100;
+  const placeU=r=>rule.uma[r]*10+(r===0?okaU:0);
   const out=g.seats.map((pid,i)=>({pid,score:sc[i],rank:0,pt:0}));
+  const tieOrder=Array.isArray(g.tieOrder)?g.tieOrder:[];
+  const need=[];
   let r=0;
   while(r<4){
     let e=r;
     if(rule.tie==='split')while(e+1<4&&sc[order[e+1]]===sc[order[r]])e++;
-    let bonus=0;for(let k=r;k<=e;k++)bonus+=place(k);bonus/=(e-r+1);
-    for(let k=r;k<=e;k++){const o=out[order[k]];o.rank=r+1;o.pt=Math.round(((o.score-rule.back)/1000+bonus)*10)/10}
+    // 同点者を「起家に近い順」に並べる（指定がなければ入力の並び順）
+    const mem=order.slice(r,e+1).sort((x,y)=>{const ix=tieOrder.indexOf(g.seats[x]),iy=tieOrder.indexOf(g.seats[y]);return (ix<0?99:ix)-(iy<0?99:iy)||x-y});
+    let pu=0;for(let k=r;k<=e;k++)pu+=placeU(k);
+    const share=splitU(pu,mem.length);
+    const kshare=(r===0&&kyoTop!==false)?splitU(kyoU,mem.length):mem.map(()=>0);
+    if(mem.length>1&&(pu%mem.length||(r===0&&kyoTop!==false&&kyoU%mem.length)))need.push(mem.map(i=>g.seats[i]));
+    mem.forEach((si,k)=>{const o=out[si];o.rank=r+1;o.pt=((o.score-rule.back)/100+share[k]+kshare[k])/10});
     r=e+1;
   }
-  return {res:out,kyo:kyoTop===false?kyo:0};
+  return {res:out,kyo:kyoTop===false?kyoU*100:0,need};
 }
 function setSummary(st){
   const rule=RULES[st.rule]||RULES.m,tot={};let kyo=0;
@@ -383,7 +392,7 @@ function renderForm(force){
   F.innerHTML=`<div class="card" id="formCard"><h2>第${n}半荘を${S.edit!=null?'修正':'記録'}</h2>
    <p class="note" style="margin:-6px 0 10px">点数は 32500 でも 325（百点単位）でもOK。3人入れると残り1人は自動で入ります。<span id="tieNote"></span></p>
    ${[0,1,2,3].map(i=>`<div class="seat">${fixed?`<span class="w">${esc(nm(S.form.seats[i]))}</span>`:`<select data-seat="${i}" aria-label="${i+1}人目">${opts(S.form.seats[i])}</select>`}<input data-score="${i}" inputmode="numeric" placeholder="点数" value="${esc(S.form.scores[i])}" aria-label="${esc(nm(S.form.seats[i]))}の点数"><span class="pv num" id="pv${i}"></span></div>`).join('')}
-   <div class="msg" id="fmsg"></div>
+   <div class="msg" id="fmsg"></div><div id="tieBox"></div>
    <div class="formbtns"><button class="pri" id="saveG">${S.edit!=null?'修正を保存':'記録する'}</button>${S.edit!=null?'<button id="cancelEdit">やめる</button>':''}</div></div>`;
   updatePreview();
 }
@@ -406,10 +415,23 @@ function updatePreview(){
   if(sc.some(v=>v===null||!isFinite(v))||dup){[0,1,2,3].forEach(i=>document.getElementById('pv'+i).textContent='');msg.innerHTML=dup?'<span class="m">同じ人が2回選ばれています</span>':'';return}
   const sum=sc.reduce((a,b)=>a+b,0),diff=exp-sum;
   if(diff<0||diff%1000){msg.innerHTML=`<span class="m">合計が${Math.abs(diff).toLocaleString()}点${diff<0?'多い':'合わない'}です（合計 ${sum.toLocaleString()}点）</span>`;[0,1,2,3].forEach(i=>document.getElementById('pv'+i).textContent='');return}
-  const c=calc({seats:S.form.seats,scores:sc},rule,st.kyoTop);
-  const tn=document.getElementById('tieNote');if(tn)tn.textContent=new Set(sc).size<4?(rule.tie==='split'?' 同点のため、順位点（ウマ・オカ）を折半しています。':' 同点のときは上の行の人（上家）を上位にしています。'):'';
+  const c=calc({seats:S.form.seats,scores:sc,tieOrder:S.form.tieOrder},rule,st.kyoTop);
+  renderTieBox(c.need);
+  const tn=document.getElementById('tieNote');if(tn)tn.textContent=new Set(sc).size<4?(rule.tie==='split'?' 同点のため、順位点を同点者で分けています'+(c.res.some(x=>x.rank===1&&sc.filter(v=>v===x.score).length>1)&&diff&&st.kyoTop!==false?'（残った供託も同点者で等分）':'')+'。':' 同点のときは上の行の人（上家）を上位にしています。'):'';
   c.res.forEach((r,i)=>{const e=document.getElementById('pv'+i);e.textContent=f1(r.pt);e.className='pv num '+cls(r.pt)});
   msg.innerHTML=diff?`<span class="note">供託 ${diff/1000}本 ${st.kyoTop===false?'（場に残る）':'→ トップへ'}</span>`:'<span class="note">合計OK</span>';
+}
+function renderTieBox(need){
+  const box=document.getElementById('tieBox');if(!box)return;
+  if(!need||!need.length){box.innerHTML='';box.dataset.sig='';S.form.tieOrder=null;return}
+  const grp=need[0];
+  const cur=(S.form.tieOrder||[]).filter(p=>grp.includes(p));
+  const ord=cur.length===grp.length?cur:grp.slice();
+  S.form.tieOrder=ord;
+  const sig=grp.slice().sort().join(',')+'|'+ord.join(',');
+  if(box.dataset.sig===sig)return;box.dataset.sig=sig;
+  box.innerHTML=`<div class="banner" style="margin:4px 0 10px"><b>3人同点で割り切れない端数があります。</b><br><span class="note">Mリーグ規定では、端数（100点単位）は起家に近い人が多く取ります。起家に近い順に選んでください。</span>
+   ${ord.map((p,i)=>`<label style="display:grid;grid-template-columns:5.5em minmax(0,1fr);gap:8px;align-items:center;margin-top:8px"><span class="note">${i+1}番目に近い</span><select data-tie="${i}">${grp.map(q=>`<option value="${esc(q)}"${q===p?' selected':''}>${esc(nm(q))}</option>`).join('')}</select></label>`).join('')}</div>`;
 }
 function saveGame(){
   const {sc,exp}=readForm();
@@ -420,6 +442,7 @@ function saveGame(){
   if(diff<0||diff%1000){updatePreview();return}
   const st=JSON.parse(JSON.stringify(S.sets[S.setId]));st.games=st.games||[];
   const g={seats:S.form.seats.slice(),scores:sc};
+  if(S.form.tieOrder&&S.form.tieOrder.length){if(new Set(S.form.tieOrder).size!==S.form.tieOrder.length){msg.innerHTML='<span class="m">起家に近い順で同じ人が重なっています</span>';return}g.tieOrder=S.form.tieOrder.slice()}
   if(S.edit!=null)st.games[S.edit]=g;else st.games.push(g);
   st.updated=Date.now();
   S.form={seats:g.seats.slice(),scores:['','','','']};S.edit=null;S.formKey='';
@@ -511,7 +534,7 @@ document.addEventListener('click',e=>{
   else if(t.dataset.rmp){const s=JSON.parse(JSON.stringify(st));s.players=s.players.filter(p=>p!==t.dataset.rmp);if(S.form)S.form.seats=S.form.seats.map(p=>p===t.dataset.rmp?'':p);S.form=null;put('sets',s)}
   else if(t.id==='saveG')saveGame();
   else if(t.id==='cancelEdit'){S.edit=null;S.form=null;renderForm(true)}
-  else if(t.dataset.edit!=null){const i=+t.dataset.edit,g=st.games[i];S.edit=i;S.form={seats:g.seats.slice(),scores:g.scores.map(String)};renderForm(true);document.getElementById('formCard').scrollIntoView({behavior:'smooth',block:'start'})}
+  else if(t.dataset.edit!=null){const i=+t.dataset.edit,g=st.games[i];S.edit=i;S.form={seats:g.seats.slice(),scores:g.scores.map(String),tieOrder:g.tieOrder?g.tieOrder.slice():null};renderForm(true);document.getElementById('formCard').scrollIntoView({behavior:'smooth',block:'start'})}
   else if(t.dataset.delg!=null){const k='g'+t.dataset.delg;if(S.armed!==k)return arm(k);const s=JSON.parse(JSON.stringify(st));s.games.splice(+t.dataset.delg,1);S.armed=null;S.edit=null;S.form=null;put('sets',s)}
   else if(t.id==='delSet'){if(S.armed!=='set')return arm('set');S.armed=null;const id=S.setId;go('sets');del('sets',id)}
   else if(t.id==='copyRes'){copyText(S.shareText||'',ok=>{t.textContent=ok?'コピーしました':'コピーできませんでした'})}
@@ -537,6 +560,7 @@ document.addEventListener('input',e=>{
 document.addEventListener('change',e=>{
   const t=e.target,st=S.sets[S.setId];
   if(t.id==='meSel'){S.me=t.value;lsSet(LSME,t.value);render()}
+  else if(t.dataset.tie!=null){S.form.tieOrder[+t.dataset.tie]=t.value;document.getElementById('tieBox').dataset.sig='x';updatePreview()}
   else if(t.dataset.seat!=null){S.form.seats[+t.dataset.seat]=t.value;updatePreview()}
   else if(t.id==='sDate'&&t.value){put('sets',Object.assign(JSON.parse(JSON.stringify(st)),{date:t.value}))}
   else if(t.id==='sRule'){put('sets',Object.assign(JSON.parse(JSON.stringify(st)),{rule:t.value}))}
