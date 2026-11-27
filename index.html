@@ -516,11 +516,13 @@ function vStats(){
   const games=ruleGames(S.statRule),P=playerStats(games);
   if(!P[S.statPid])S.statPid=P[S.me]?S.me:(Object.values(P).sort((a,b)=>b.n-a.n)[0]||{}).pid;
   const rank=Object.values(P).sort((a,b)=>b.tot-a.tot);
-  let h=`<div class="card"><h2>ルール別戦績</h2><div class="chips">${rules.map(k=>`<button class="chip${k===S.statRule?' sel':''}" data-rule="${k}">${RULES[k].name}<span class="note num">(${counts[k]})</span></button>`).join('')}</div>
-   <div class="scroll"><table><thead><tr><th>#</th><th>名前</th><th>合計</th><th>打荘</th><th>平均pt</th><th>平均順位</th><th>トップ率</th></tr></thead><tbody>
-   ${rank.map((p,i)=>`<tr class="click${p.pid===S.statPid?' cur':''}" data-pid="${esc(p.pid)}"><td>${i+1}</td><td>${esc(nm(p.pid))}</td><td class="${cls(p.tot)}">${f1(p.tot)}</td><td>${p.n}</td><td class="${cls(p.avg)}">${p.avg.toFixed(2)}</td><td>${f2(p.ar)}</td><td>${(p.r1*100).toFixed(1)}%</td></tr>`).join('')}
-   </tbody></table></div><p class="note" style="margin:8px 0 0">名前を押すと、その人の詳しい成績に切り替わります。</p></div>`;
-  const p=P[S.statPid];if(!p)return h;
+  let h=`<div class="card"><h2>ルール別戦績</h2><div class="chips" style="margin-bottom:0">${rules.map(k=>`<button class="chip${k===S.statRule?' sel':''}" data-rule="${k}">${RULES[k].name}<span class="note num">(${counts[k]})</span></button>`).join('')}</div></div>`;
+  const isMe=S.statPid===S.me;
+  const rankCard=`<div class="card" id="rankCard"><h2>ランキング</h2><div class="scroll"><table><thead><tr><th>#</th><th>名前</th><th>合計</th><th>打荘</th><th>平均pt</th><th>平均順位</th><th>トップ率</th></tr></thead><tbody>
+   ${rank.map((p,i)=>`<tr class="click${p.pid===S.statPid?' cur':''}" data-pid="${esc(p.pid)}"><td>${i+1}</td><td>${esc(nm(p.pid))}${p.pid===S.me?' <span class="note">（自分）</span>':''}</td><td class="${cls(p.tot)}">${f1(p.tot)}</td><td>${p.n}</td><td class="${cls(p.avg)}">${p.avg.toFixed(2)}</td><td>${f2(p.ar)}</td><td>${(p.r1*100).toFixed(1)}%</td></tr>`).join('')}
+   </tbody></table></div><p class="note" style="margin:8px 0 0">名前を押すと、その人の詳しい成績を上に表示します。</p></div>`;
+  const p=P[S.statPid];if(!p)return h+rankCard;
+  if(!isMe&&P[S.me])h+=`<div class="toolbar"><button id="backMe">← 自分の成績に戻る</button></div>`;
   const rc=[1,2,3,4].map(r=>p.ranks.filter(x=>x===r).length/p.n);
   CH.me={type:'dist',data:[{m:p.avg,se:p.se,color:'#2f6fec'}]};
   h+=`<div class="card"><h2>${esc(nm(p.pid))}　${esc(RULES[S.statRule].name)} トータル戦績</h2>
@@ -547,6 +549,7 @@ function vStats(){
        ${can?`<div class="legend" style="margin-top:8px"><span><i style="background:#2f6fec"></i>自分（同卓時）</span><span><i style="background:#c4313f"></i>相手（同卓時）</span></div><div class="fig sm" data-c="vs${i}"><svg role="img" aria-label="自分と相手の実力推定"></svg></div>`:''}</div>`});
     h+='</div>';
   }
+  h+=rankCard;
   return h;
 }
 
@@ -586,7 +589,7 @@ function go(h){curHash=h;if(!GAS){try{if(location.hash.slice(1)!==h){location.ha
 function route(){
   const h=GAS?curHash:location.hash.slice(1);
   if(h.startsWith('s-')){if(S.setId!==h.slice(2)){S.form=null;S.edit=null;S.formKey=''}S.view='set';S.setId=h.slice(2)}
-  else S.view=['stats','members','settings-me'].includes(h)?h:'sets';
+  else{S.view=['stats','members','settings-me'].includes(h)?h:'sets';if(S.view==='stats')S.statPid=null}
   S.armed=null;render();window.scrollTo(0,0);
 }
 window.addEventListener('hashchange',()=>{if(!GAS)route()});
@@ -607,7 +610,8 @@ document.addEventListener('click',e=>{
   else if(t.id==='delSet'){if(S.armed!=='set')return arm('set');S.armed=null;const id=S.setId;go('sets');del('sets',id)}
   else if(t.id==='copyRes'){copyText(S.shareText||'',ok=>{t.textContent=ok?'コピーしました':'コピーできませんでした'})}
   else if(t.dataset.rule){S.statRule=t.dataset.rule;S.statPid=null;render()}
-  else if(t.dataset.pid){S.statPid=t.dataset.pid;render()}
+  else if(t.dataset.pid){S.statPid=t.dataset.pid;render();window.scrollTo({top:0,behavior:'smooth'})}
+  else if(t.id==='backMe'){S.statPid=S.me;render();window.scrollTo(0,0)}
   else if(t.id==='newMBtn'){const el=document.getElementById('newM');if(findOrCreate(el.value))el.value=''}
   else if(t.dataset.delm){const k='m'+t.dataset.delm;if(S.armed!==k)return arm(k);S.armed=null;if(S.me===t.dataset.delm){S.me='';lsSet(LSME,'')}del('members',t.dataset.delm)}
   else if(t.id==='gCreate')createGroup(document.getElementById('gName').value)
