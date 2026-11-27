@@ -119,6 +119,13 @@ tr.click{cursor:pointer}tr.cur td{background:var(--soft)}
 .vsrow{display:grid;grid-template-columns:minmax(0,1fr) 5em 3.6em;gap:8px;font-size:15px;padding:3px 0}
 .vsrow .num{text-align:right}
 .vsrow.h{font-size:17px;font-weight:700}
+.verdict{margin-top:6px;padding:8px 12px;border-radius:10px;background:var(--soft);font-size:14px;font-weight:700}
+.verdict.note{font-weight:500}
+.guide{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:14px}
+.guide span{padding:7px 12px;border-top:1px solid var(--line)}
+.guide span:nth-child(-n+2){border-top:0;background:var(--soft)}
+.guide .gh{font-size:12px;color:var(--mute)}
+.guide span:nth-child(even){text-align:right}
 .mem{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
 .empty{text-align:center;color:var(--mute);padding:28px 10px}
 @media(max-width:600px){
@@ -538,14 +545,31 @@ function vStats(){
   games.forEach(res=>{const mine=res.find(x=>x.pid===p.pid);if(!mine)return;res.forEach(o=>{if(o.pid===p.pid)return;const v=vs[o.pid]=vs[o.pid]||{pid:o.pid,a:[],b:[],ar:[],br:[],win:0};v.a.push(mine.pt);v.b.push(o.pt);v.ar.push(mine.rank);v.br.push(o.rank);if(mine.rank<o.rank)v.win++})});
   const vl=Object.values(vs).sort((x,y)=>y.a.length-x.a.length);
   if(vl.length){
-    h+=`<div class="card"><h2>同卓した相手との比較</h2><p class="note" style="margin-top:-6px">一緒に打った半荘だけで比べています。「相手より強い確率」は2人の実力推定の山から計算、「先着率」は相手より上の着順で終わった割合です。</p>`;
+    // 同じ卓の2人のポイントは逆に動くので、半荘ごとの「自分−相手」の差でブレを測る
+    const allD=vl.flatMap(v=>v.a.map((x,k)=>x-v.b[k]));
+    const sdAll=allD.length>=20&&sd(allD)>0?sd(allD):72;
+    const guide=[30,50,100,200,500,1000];
+    h+=`<div class="card"><h2>同卓した相手との比較</h2><p class="note" style="margin-top:-6px">一緒に打った半荘だけで比べています。「相手より強い確率」は、半荘ごとの自分と相手のポイント差から計算しています（同じ卓では2人のポイントが逆に動くことも反映）。「先着率」は相手より上の着順で終わった割合です。</p>
+     <h3 style="margin-top:14px">半荘数と、判断できる差の目安</h3>
+     <div class="guide"><span class="gh">同卓した半荘数</span><span class="gh num">見分けられる平均ptの差</span>${guide.map(n=>`<span class="num">${n}戦</span><span class="num">約${(1.96*sdAll/Math.sqrt(n)).toFixed(1)}pt 以上</span>`).join('')}</div>
+     <p class="note" style="margin:6px 0 0">平均ptの差がこの値より大きければ、95%の確からしさで「本当に差がある」と言えます（${allD.length>=20?'このデータのばらつきから計算':'一般的なばらつきで計算'}）。30戦未満は参考程度に見てください。</p>`;
     vl.forEach((v,i)=>{const n=v.a.length,ma=mean(v.a),mb=mean(v.b),sa=sd(v.a)/Math.sqrt(n),sb=sd(v.b)/Math.sqrt(n);
-      const can=n>=2&&sa>0&&sb>0,pr=can?Phi((ma-mb)/Math.sqrt(sa*sa+sb*sb)):NaN;
+      const d=v.a.map((x,k)=>x-v.b[k]),md=mean(d),sdd=n>=20&&sd(d)>0?sd(d):sdAll,se=sdd/Math.sqrt(n),margin=1.96*se;
+      const pr=Phi(md/se);
+      const need=md?Math.ceil((1.96*sdd/Math.abs(md))**2):Infinity;
+      let verdict,vcls='note';
+      if(n<30)verdict=`まだ参考程度（30戦まであと${30-n}戦）`;
+      else if(Math.abs(md)>margin){verdict=md>0?'自分のほうが強いと言える':'相手のほうが強いと言える';vcls=md>0?'p':'m'}
+      else verdict=isFinite(need)&&need>3000?'今のところほぼ互角':`まだ差は判断できない${isFinite(need)&&need>n?`（この差のままなら約${need}戦で判断できる）`:''}`;
+      const can=n>=2&&sa>0&&sb>0;
       if(can)CH['vs'+i]={type:'dist',data:[{m:ma,se:sa,color:'#2f6fec'},{m:mb,se:sb,color:'#c4313f'}]};
       h+=`<div class="vs"><div class="vsrow h"><span>VS ${esc(nm(v.pid))} <span class="note num">(${n}戦)</span></span><span class="num ${cls(ma)}" style="text-align:right">${ma.toFixed(2)}</span><span class="num note" style="text-align:right">(${f2(mean(v.ar))})</span></div>
        <div class="vsrow"><span class="note">相手の成績</span><span class="num ${cls(mb)}">${mb.toFixed(2)}</span><span class="num note">(${f2(mean(v.br))})</span></div>
-       <div class="vsrow"><span class="note">相手より強い確率</span><span class="num"><b>${can?(pr*100).toFixed(2)+'%':'—'}</b></span><span></span></div>
+       <div class="vsrow"><span class="note">平均ptの差</span><span class="num ${cls(md)}">${f1(md)}</span><span></span></div>
+       <div class="vsrow"><span class="note">判断できる差の目安</span><span class="num">±${margin.toFixed(1)}</span><span></span></div>
+       <div class="vsrow"><span class="note">相手より強い確率</span><span class="num"><b>${n>=2?(pr*100).toFixed(1)+'%':'—'}</b></span><span></span></div>
        <div class="vsrow"><span class="note">先着率</span><span class="num">${(v.win/n*100).toFixed(1)}%</span><span></span></div>
+       <div class="verdict ${vcls}">${verdict}</div>
        ${can?`<div class="legend" style="margin-top:8px"><span><i style="background:#2f6fec"></i>自分（同卓時）</span><span><i style="background:#c4313f"></i>相手（同卓時）</span></div><div class="fig sm" data-c="vs${i}"><svg role="img" aria-label="自分と相手の実力推定"></svg></div>`:''}</div>`});
     h+='</div>';
   }
