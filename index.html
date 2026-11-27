@@ -93,8 +93,11 @@ svg .tk{fill:var(--mute);font-size:11px;font-variant-numeric:tabular-nums}
 .gres div{background:var(--soft);border-radius:8px;padding:6px 8px;font-size:14px}
 .gres div span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .gres div b{font-size:15px}
-.seat{display:grid;grid-template-columns:minmax(0,1fr) 7.5em 4.8em;gap:8px;align-items:center;margin-bottom:8px}
+.seat{display:grid;grid-template-columns:minmax(0,1fr) 9.6em 4.8em;gap:8px;align-items:center;margin-bottom:8px}
 .seat input{text-align:right}
+.sc{display:grid;grid-template-columns:44px minmax(0,1fr);gap:4px}
+.neg{height:48px;min-height:48px;padding:0;border-radius:12px;font-size:20px;font-weight:700;color:var(--mute)}
+.neg.on{background:var(--minus);border-color:var(--minus);color:#fff}
 .seat .w{display:flex;align-items:center;height:48px;padding:0 12px;border-radius:12px;background:var(--soft);font-weight:700;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .seat .pv{text-align:right;font-weight:700}
 .msg{min-height:1.5em;font-size:14px;margin:6px 0}
@@ -123,7 +126,7 @@ tr.click{cursor:pointer}tr.cur td{background:var(--soft)}
  .gres{grid-template-columns:repeat(2,minmax(0,1fr))}
  .rank{grid-template-columns:1.6em minmax(0,1fr) 4.8em 3em;}
  .rank .s.ar{display:none}
- .seat{grid-template-columns:minmax(0,1fr) 6.6em 4.4em;gap:6px}
+ .seat{grid-template-columns:minmax(0,1fr) 8.6em 4.2em;gap:6px}
 }
 @media (prefers-reduced-motion:no-preference){.card{animation:in .25s ease-out}@keyframes in{from{opacity:0;transform:translateY(4px)}}}
 </style>
@@ -445,13 +448,13 @@ function renderForm(force){
   const n=S.edit!=null?S.edit+1:(st.games||[]).length+1;
   const opts=sel=>pl.map(p=>`<option value="${esc(p)}"${p===sel?' selected':''}>${esc(nm(p))}</option>`).join('');
   F.innerHTML=`<div class="card" id="formCard"><h2>第${n}半荘を${S.edit!=null?'修正':'記録'}</h2>
-   <p class="note" style="margin:-6px 0 10px">点数は 32500 でも 325（百点単位）でもOK。3人入れると残り1人は自動で入ります。<span id="tieNote"></span></p>
-   ${[0,1,2,3].map(i=>`<div class="seat">${fixed?`<span class="w">${esc(nm(S.form.seats[i]))}</span>`:`<select data-seat="${i}" aria-label="${i+1}人目">${opts(S.form.seats[i])}</select>`}<input data-score="${i}" inputmode="numeric" placeholder="点数" value="${esc(S.form.scores[i])}" aria-label="${esc(nm(S.form.seats[i]))}の点数"><span class="pv num" id="pv${i}"></span></div>`).join('')}
+   <p class="note" style="margin:-6px 0 10px">点数は 32500 でも 325（百点単位）でもOK。マイナスは左の「−」を押します。3人入れると残り1人は自動で入ります。<span id="tieNote"></span></p>
+   ${[0,1,2,3].map(i=>`<div class="seat">${fixed?`<span class="w">${esc(nm(S.form.seats[i]))}</span>`:`<select data-seat="${i}" aria-label="${i+1}人目">${opts(S.form.seats[i])}</select>`}<span class="sc"><button type="button" class="neg${String(S.form.scores[i]).trim().startsWith('-')?' on':''}" data-neg="${i}" aria-label="マイナスにする">−</button><input data-score="${i}" inputmode="numeric" placeholder="点数" value="${esc(S.form.scores[i])}" aria-label="${esc(nm(S.form.seats[i]))}の点数"></span><span class="pv num" id="pv${i}"></span></div>`).join('')}
    <div class="msg" id="fmsg"></div><div id="tieBox"></div>
    <div class="formbtns"><button class="pri" id="saveG">${S.edit!=null?'修正を保存':'記録する'}</button>${S.edit!=null?'<button id="cancelEdit">やめる</button>':''}</div></div>`;
   updatePreview();
 }
-function normScore(v){v=String(v).replace(/[,，\s]/g,'').replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-65248)).replace(/[－ー―]/g,'-');if(v===''||v==='-')return null;let n=Number(v);if(!isFinite(n))return NaN;if(Math.abs(n)<1000)n*=100;return Math.round(n/100)*100}
+function normScore(v){v=String(v).replace(/[,，\s]/g,'').replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-65248)).replace(/[－ー―−]/g,'-');if(v===''||v==='-')return null;let n=Number(v);if(!isFinite(n))return NaN;if(Math.abs(n)<1000)n*=100;return Math.round(n/100)*100}
 function readForm(){
   const st=S.sets[S.setId],rule=RULES[st.rule]||RULES.m,exp=rule.start*4;
   const sc=S.form.scores.map(normScore);
@@ -591,11 +594,12 @@ document.addEventListener('click',e=>{const a=e.target.closest('a[href^="#"]');i
 document.addEventListener('click',e=>{
   const t=e.target.closest('button,tr.click');if(!t)return;
   const st=S.sets[S.setId];
-  if(t.id==='newSet'){const last=Object.values(S.sets).sort((a,b)=>(b.created||0)-(a.created||0))[0];const s={id:uid(),date:today(),rule:last?last.rule:'m',kyoTop:true,players:last?last.players.filter(p=>S.members[p]).slice():[],games:[],created:Date.now()};put('sets',s);go('s-'+s.id)}
+  if(t.id==='newSet'){const last=Object.values(S.sets).sort((a,b)=>(b.created||0)-(a.created||0))[0];const s={id:uid(),date:today(),rule:last?last.rule:'m',kyoTop:true,players:S.me&&S.members[S.me]?[S.me]:[],games:[],created:Date.now()};put('sets',s);go('s-'+s.id)}
   else if(t.id==='back')go('sets');
   else if(t.id==='addPBtn')addPlayer();
   else if(t.dataset.tog){const id=t.dataset.tog,s=JSON.parse(JSON.stringify(st));s.players=s.players||[];if(s.players.includes(id)){if((s.games||[]).some(g=>g.seats.includes(id)))return;s.players=s.players.filter(p=>p!==id)}else s.players.push(id);S.form=null;put('sets',s)}
   else if(t.dataset.rmp){const s=JSON.parse(JSON.stringify(st));s.players=s.players.filter(p=>p!==t.dataset.rmp);if(S.form)S.form.seats=S.form.seats.map(p=>p===t.dataset.rmp?'':p);S.form=null;put('sets',s)}
+  else if(t.dataset.neg!=null){const i=+t.dataset.neg,inp=document.querySelector(`[data-score="${i}"]`);let v=String(S.form.scores[i]||'').trim().replace(/^[-−ー－]/,m=>'-');v=v.startsWith('-')?v.slice(1):'-'+v;S.form.scores[i]=v;inp.value=v;t.classList.toggle('on',v.startsWith('-'));updatePreview();if(v==='-')inp.focus()}
   else if(t.id==='saveG')saveGame();
   else if(t.id==='cancelEdit'){S.edit=null;S.form=null;renderForm(true)}
   else if(t.dataset.edit!=null){const i=+t.dataset.edit,g=st.games[i];S.edit=i;S.form={seats:g.seats.slice(),scores:g.scores.map(String),tieOrder:g.tieOrder?g.tieOrder.slice():null};renderForm(true);document.getElementById('formCard').scrollIntoView({behavior:'smooth',block:'start'})}
@@ -622,7 +626,7 @@ function addPlayer(){
 document.addEventListener('keydown',e=>{if(e.key==='Enter'){if(e.target.id==='gName'){e.preventDefault();createGroup(e.target.value)}else if(e.target.id==='addP'){e.preventDefault();addPlayer()}else if(e.target.id==='newM'){e.preventDefault();document.getElementById('newMBtn').click()}else if(e.target.dataset&&e.target.dataset.ren!=null)e.target.blur()}});
 document.addEventListener('input',e=>{
   const t=e.target;
-  if(t.dataset.score!=null){S.form.scores[+t.dataset.score]=t.value;updatePreview()}
+  if(t.dataset.score!=null){S.form.scores[+t.dataset.score]=t.value;const nb=document.querySelector(`[data-neg="${t.dataset.score}"]`);if(nb)nb.classList.toggle('on',/^\s*[-−ー－]/.test(t.value));updatePreview()}
 });
 document.addEventListener('change',e=>{
   const t=e.target,st=S.sets[S.setId];
